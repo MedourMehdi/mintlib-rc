@@ -31,18 +31,21 @@
 #define _MINT_PC_NAME_CASE 6	/* case-insensitive file-names */
 
 /* Values for the argument to `sysconf'.  */
-#define _SC_LAST	-1	/* max limit # for sysconf - NOT POSIX */
-#define _SC_MEMR_MAX	0	/* memory regions per process - NOT POSIX */
-#define _SC_ARG_MAX	1	/* max length of cmdln - NOT quite POSIX */
-#define _SC_OPEN_MAX	2	/* max # of open files per process - POSIX */
-#define _SC_NGROUPS_MAX	3	/* max # supp gids - POSIX */
-#define _SC_CHILD_MAX	4	/* max # processes/user - NOT quite POSIX */
-#define _SC_CLK_TCK	5	/* clock ticks */
-#define _SC_PAGE_SIZE	6	/* pagesize */
-#define _SC_PAGESIZE	_SC_PAGE_SIZE	
-#define _SC_PHYS_PAGES	7	/* physical pages */
+#define _SC_LAST				-1	/* max limit # for sysconf - NOT POSIX */
+#define _SC_MEMR_MAX			0	/* memory regions per process - NOT POSIX */
+#define _SC_ARG_MAX				1	/* max length of cmdln - NOT quite POSIX */
+#define _SC_OPEN_MAX			2	/* max # of open files per process - POSIX */
+#define _SC_NGROUPS_MAX			3	/* max # supp gids - POSIX */
+#define _SC_CHILD_MAX			4	/* max # processes/user - NOT quite POSIX */
+#define _SC_CLK_TCK				5	/* clock ticks */
+#define _SC_PAGE_SIZE			6	/* pagesize */
+#define _SC_PAGESIZE			_SC_PAGE_SIZE	
+#define _SC_PHYS_PAGES			7	/* physical pages */
 #define _SC_GETPW_R_SIZE_MAX	8 /* passwd buffer size */
 #define _SC_GETGR_R_SIZE_MAX	9 /* group buffer size */
+#define _SC_AVPHYS_PAGES		10	/* available physical pages */
+#define _SC_NPROCESSORS_CONF	11 /* configured processors */
+#define _SC_NPROCESSORS_ONLN	12 /* online processors */
 
 #if (defined __USE_POSIX2 || defined __USE_UNIX98 \
      || defined __USE_FILE_OFFSET64 || defined __USE_LARGEFILE64 \
