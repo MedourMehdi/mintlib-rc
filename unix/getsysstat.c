@@ -22,10 +22,22 @@
 #define ALTRAM_START_BOUNDARY 0x01000000L
 #endif
 
-static int is_there_altram(void){
-    long ramtop_val;
+/* Magic value that validates ramtop pointer */
+#ifndef RAMVALID_MAGIC
+#define RAMVALID_MAGIC 0x1357L
+#endif
+
+static short is_there_altram(void){
+    long ramtop_val, ramvalid_val;
     
-    /* Supexec can fail, check return value */
+    /* First check if ramvalid contains the magic value */
+    ramvalid_val = Supexec(*ramvalid);
+    if (ramvalid_val < 0 || ramvalid_val != RAMVALID_MAGIC) {
+        /* Supexec failed or ramvalid is not the magic value */
+        return FALSE;
+    }
+    
+    /* ramvalid is correct, now check ramtop */
     ramtop_val = Supexec(*ramtop);
     if (ramtop_val < 0) {
         /* Supexec failed */
@@ -36,9 +48,11 @@ static int is_there_altram(void){
 }
 
 static unsigned long int get_altram_value(void){
-    long ramtop_val;
+    long ramtop_val, ramvalid_val;
     
-    if (!is_there_altram()) {
+    /* Validate ramvalid first */
+    ramvalid_val = Supexec(*ramvalid);
+    if (ramvalid_val < 0 || ramvalid_val != RAMVALID_MAGIC) {
         return 0;
     }
     
@@ -55,7 +69,6 @@ static unsigned long int get_altram_value(void){
     
     return (unsigned long int)(ramtop_val - ALTRAM_START_BOUNDARY);
 }
-
 static unsigned long int get_stram_value(void){
     long phystop_val;
     
