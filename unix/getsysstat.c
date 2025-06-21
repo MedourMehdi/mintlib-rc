@@ -3,6 +3,7 @@
 #include <bits/local_lim.h>
 #include <mint/osbind.h>
 #include <mint/sysvars.h>
+#include <errno.h>
 
 #include <sys/sysinfo.h>
 
@@ -16,33 +17,84 @@
 #define UNLIMITED	(0x7fffffffL)
 #endif
 
+/* 16MB boundary - Alt-RAM starts at 16MB on Atari systems */
+#ifndef ALTRAM_START_BOUNDARY
+#define ALTRAM_START_BOUNDARY 0x01000000L
+#endif
+
 static int is_there_altram(void){
-    if(Supexec(*ramtop) > 0x01000000L){
-        return TRUE;
+    long ramtop_val;
+    
+    /* Supexec can fail, check return value */
+    ramtop_val = Supexec(*ramtop);
+    if (ramtop_val < 0) {
+        /* Supexec failed */
+        return FALSE;
     }
-    return FALSE;
+    
+    return (ramtop_val > ALTRAM_START_BOUNDARY) ? TRUE : FALSE;
 }
 
 static unsigned long int get_altram_value(void){
-    if(is_there_altram()){
-        return (int)((Supexec(*ramtop) - 0x01000000L));
+    long ramtop_val;
+    
+    if (!is_there_altram()) {
+        return 0;
     }
-    return 0;
+    
+    ramtop_val = Supexec(*ramtop);
+    if (ramtop_val < 0) {
+        /* Supexec failed */
+        return 0;
+    }
+    
+    /* Ensure we don't return negative values due to calculation errors */
+    if (ramtop_val <= ALTRAM_START_BOUNDARY) {
+        return 0;
+    }
+    
+    return (unsigned long int)(ramtop_val - ALTRAM_START_BOUNDARY);
 }
 
 static unsigned long int get_stram_value(void){
-    return Supexec(*phystop);
+    long phystop_val;
+    
+    phystop_val = Supexec(*phystop);
+    if (phystop_val < 0) {
+        /* Supexec failed, return 0 */
+        return 0;
+    }
+    
+    return (unsigned long int)phystop_val;
 }
 
+
 static unsigned long int get_available_altram(void){
-    if(is_there_altram()){
-        return Mxalloc(-1, 1);
+    long avail;
+    
+    if (!is_there_altram()) {
+        return 0;
     }
-    return 0;
+    
+    avail = Mxalloc(-1, 1);
+    if (avail < 0) {
+        /* Mxalloc failed or no Alt-RAM available */
+        return 0;
+    }
+    
+    return (unsigned long int)avail;
 }
 
 static unsigned long int get_available_stram(void){
-    return Mxalloc(-1, 0);
+    long avail;
+    
+    avail = Mxalloc(-1, 0);
+    if (avail < 0) {
+        /* Mxalloc failed */
+        return 0;
+    }
+    
+    return (unsigned long int)avail;
 }
 
 __typeof__(get_nprocs_conf) __get_nprocs_conf;
@@ -61,14 +113,42 @@ weak_alias (__get_nprocs, get_nprocs)
 /* Return number of physical pages of memory in the system.  */
 __typeof__(get_phys_pages) __get_phys_pages;
 long int __get_phys_pages (void){
-    return ((get_stram_value() + get_altram_value()) / getpagesize());
+    unsigned long int total_mem;
+    long page_size;
+    
+    total_mem = get_stram_value() + get_altram_value();
+    if (total_mem == 0) {
+        /* No memory detected or system calls failed */
+        errno = EIO;
+        return -1;
+    }
+    
+    page_size = getpagesize();
+    if (page_size <= 0) {
+        /* Invalid page size, use safe default */
+        page_size = 8192;
+    }
+    
+    return (long int)(total_mem / page_size);
 }
 weak_alias (__get_phys_pages, get_phys_pages)
 
 /* Return number of available physical pages of memory in the system.  */
 __typeof__(get_avphys_pages) __get_avphys_pages;
 long int __get_avphys_pages (void){
-    return (get_available_stram() + get_available_altram()) / getpagesize();
+    unsigned long int avail_mem;
+    long page_size;
+    
+    avail_mem = get_available_stram() + get_available_altram();
+    /* Available memory can legitimately be 0 if system is out of memory */
+    
+    page_size = getpagesize();
+    if (page_size <= 0) {
+        /* Invalid page size, use safe default */
+        page_size = 8192;
+    }
+    
+    return (long int)(avail_mem / page_size);
 }
 weak_alias (__get_avphys_pages, get_avphys_pages)
 
