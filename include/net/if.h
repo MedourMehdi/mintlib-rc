@@ -145,11 +145,11 @@ struct	ifreq {
 		struct	sockaddr ifru_broadaddr;
 		struct	sockaddr ifru_netmask;
 		short	ifru_flags;
-		short	ifru_ifindex;
 		long	ifru_metric;
 		long	ifru_mtu;
 		struct	ifstat ifru_stats;
 		caddr_t	ifru_data;
+		short	ifru_ifindex;
 	} ifr_ifru;
 #define	ifr_addr	ifr_ifru.ifru_addr	/* address */
 #define	ifr_hwaddr	ifr_ifru.ifru_hwaddr	/* hardware address */
@@ -162,6 +162,7 @@ struct	ifreq {
 #define ifr_mtu		ifr_ifru.ifru_mtu	/* mtu */
 #define ifr_stats	ifr_ifru.ifru_stats	/* statistics */
 #define	ifr_data	ifr_ifru.ifru_data	/* for use by interface */
+#define	ifr_ifindex	ifr_ifru.ifru_ifindex	/* Index */
 };
 
 /*

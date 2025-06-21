@@ -18,7 +18,7 @@ __if_indextoname(unsigned short index, char name[IF_NAMESIZE])
 		return NULL;
 	}
 	ifr.ifr_ifindex = index;
-	r = ioctl(fd, SIOCGIFNAME_ETH, &ifr);
+	r = ioctl(fd, SIOCGIFNAME_IFREQ, &ifr);
 	close(fd);
 	if(!r){
 		return strncpy(name, ifr.ifr_name, IF_NAMESIZE);

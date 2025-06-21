@@ -48,7 +48,7 @@
 #define SIOCDELRT	(('S' << 8) | 31)	/* delete routing table entry */
 
 /* network devices calls */
-#define SIOCGIFNAME_ETH	(('S' << 8) | 32)	/* return the name of the interface */
+#define SIOCGIFNAME_IFREQ	(('S' << 8) | 32)	/* return the name of the interface */
 #define SIOCGIFINDEX	(('S' << 8) | 33)	/* retrieve the interface index */
 
 /* ARP cache control calls */
@@ -60,7 +60,7 @@
 
 #ifdef SIOCGIFNAME
 #undef SIOCGIFNAME
-#define SIOCGIFNAME SIOCGIFNAME_ETH
+#define SIOCGIFNAME SIOCGIFNAME_IFREQ
 #endif
 
 #endif
