@@ -27,18 +27,33 @@
 #define RAMVALID_MAGIC 0x1357L
 #endif
 
+/* Helper functions to read system variables in supervisor mode */
+
+static long read_phystop(void) {
+    return *phystop;
+}
+
+static long read_ramtop(void) {
+    return *ramtop;
+}
+
+static long read_ramvalid(void) {
+    return *ramvalid;
+}
+
+/* Updated functions using the helpers */
 static short is_there_altram(void){
     long ramtop_val, ramvalid_val;
     
     /* First check if ramvalid contains the magic value */
-    ramvalid_val = Supexec(*ramvalid);
+    ramvalid_val = Supexec(read_ramvalid);
     if (ramvalid_val < 0 || ramvalid_val != RAMVALID_MAGIC) {
         /* Supexec failed or ramvalid is not the magic value */
         return FALSE;
     }
     
     /* ramvalid is correct, now check ramtop */
-    ramtop_val = Supexec(*ramtop);
+    ramtop_val = Supexec(read_ramtop);
     if (ramtop_val < 0) {
         /* Supexec failed */
         return FALSE;
@@ -51,12 +66,12 @@ static unsigned long int get_altram_value(void){
     long ramtop_val, ramvalid_val;
     
     /* Validate ramvalid first */
-    ramvalid_val = Supexec(*ramvalid);
+    ramvalid_val = Supexec(read_ramvalid);
     if (ramvalid_val < 0 || ramvalid_val != RAMVALID_MAGIC) {
         return 0;
     }
     
-    ramtop_val = Supexec(*ramtop);
+    ramtop_val = Supexec(read_ramtop);
     if (ramtop_val < 0) {
         /* Supexec failed */
         return 0;
@@ -69,10 +84,11 @@ static unsigned long int get_altram_value(void){
     
     return (unsigned long int)(ramtop_val - ALTRAM_START_BOUNDARY);
 }
+
 static unsigned long int get_stram_value(void){
     long phystop_val;
     
-    phystop_val = Supexec(*phystop);
+    phystop_val = Supexec(read_phystop);
     if (phystop_val < 0) {
         /* Supexec failed, return 0 */
         return 0;
@@ -84,7 +100,7 @@ static unsigned long int get_stram_value(void){
 
 static unsigned long int get_available_altram(void){
     long avail;
-    
+
     if (!is_there_altram()) {
         return 0;
     }
@@ -94,19 +110,19 @@ static unsigned long int get_available_altram(void){
         /* Mxalloc failed or no Alt-RAM available */
         return 0;
     }
-    
+
     return (unsigned long int)avail;
 }
 
 static unsigned long int get_available_stram(void){
     long avail;
-    
+
     avail = Mxalloc(-1, 0);
     if (avail < 0) {
         /* Mxalloc failed */
         return 0;
     }
-    
+
     return (unsigned long int)avail;
 }
 
