@@ -1,7 +1,8 @@
 /*
- *	Definitons for the ioctl() commands on sockets.
+ *	Definitions for the ioctl() commands on sockets.
  *
  *	09/25/93, kay roemer.
+ *	Updated: Added RFC 3493 interface name/index operations
  */
 
 #ifndef _SOCKIOS_H
@@ -18,7 +19,7 @@
 /* (('S' << 8) | 101) reserved for MagiCNet */
 
 /* socket configuration controls */
-#define SIOCGIFNAME	(('S' << 8) | 10)	/* get iface name */
+#define SIOCGIFNAME	(('S' << 8) | 10)	/* get iface name (original MiNT) */
 #define SIOCSIFLINK	(('S' << 8) | 11)	/* connect iface to device */
 #define SIOCGIFCONF	(('S' << 8) | 12)	/* get iface list */
 #define SIOCGIFFLAGS	(('S' << 8) | 13)	/* get flags */
@@ -38,18 +39,42 @@
 #define SIOCGIFMTU	(('S' << 8) | 27)	/* get MTU size */
 #define SIOCSIFMTU	(('S' << 8) | 28)	/* set MTU size */
 #define SIOCGIFSTATS	(('S' << 8) | 29)	/* get interface statistics */
-#define SIOCSIFHWADDR	(('S' << 8) | 49)	/* set hardware address */
-#define SIOCGIFHWADDR	(('S' << 8) | 50)	/* get hardware address */
-#define SIOCGLNKSTATS	(('S' << 8) | 51)	/* get link statistics */
-#define SIOCSIFOPT	(('S' << 8) | 52)	/* set interface option */
 
 /* routing table calls */
 #define SIOCADDRT	(('S' << 8) | 30)	/* add routing table entry */
 #define SIOCDELRT	(('S' << 8) | 31)	/* delete routing table entry */
 
+/* 
+ * RFC 3493 Interface name/index operations (added for POSIX compliance)
+ * Note: These are different from the original SIOCGIFNAME above
+ */
+#define SIOCGIFNAME_IFREQ	(('S' << 8) | 32)	/* get interface name by index (RFC 3493) */
+#define SIOCGIFINDEX		(('S' << 8) | 33)	/* get interface index by name (RFC 3493) */
+
+/* 
+ * Reserved range for future interface operations: 34-39
+ * Please update this comment when adding new interface IOCTLs
+ */
+
 /* ARP cache control calls */
 #define SIOCDARP	(('S' << 8) | 40)	/* delete ARP table entry */
 #define SIOCGARP	(('S' << 8) | 41)	/* get ARP table entry */
 #define SIOCSARP	(('S' << 8) | 42)	/* set ARP table entry */
+
+/* hardware address control */
+#define SIOCSIFHWADDR	(('S' << 8) | 49)	/* set hardware address */
+#define SIOCGIFHWADDR	(('S' << 8) | 50)	/* get hardware address */
+#define SIOCGLNKSTATS	(('S' << 8) | 51)	/* get link statistics */
+#define SIOCSIFOPT	(('S' << 8) | 52)	/* set interface option */
+
+/*
+ * Compatibility definitions for RFC 3493 functions
+ * Only define the alias if GNU extensions are requested AND
+ * the application doesn't seem to be using the original MiNT SIOCGIFNAME
+ */
+#ifdef __USE_GNU
+/* Provide an alias for the RFC 3493 name-by-index operation */
+#define SIOCGIFNAME_RFC3493	SIOCGIFNAME_IFREQ
+#endif
 
 #endif /* _SOCKIOS_H */

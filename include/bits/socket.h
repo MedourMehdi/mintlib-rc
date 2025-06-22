@@ -174,6 +174,8 @@ struct sockaddr
     char sa_data[14];		/* Address data.  */
   };
 
+
+#if 0
 /* Structure large enough to hold any socket address (with the historical
    exception of AF_UNIX).  We reserve 128 bytes.  */
 #define __ss_aligntype	unsigned long int
@@ -186,7 +188,31 @@ struct sockaddr_storage
     __ss_aligntype __ss_align;	/* Force desired alignment.  */
     char __ss_padding[_SS_PADSIZE];
   };
+#endif
 
+#ifdef __mc68020__
+    /* 68020+ optimization: 4-byte alignment for better performance */
+    #define _SS_ALIGNSIZE   4
+    #define _SS_ALIGN_TYPE  unsigned long
+#else
+    /* 68000/68010: 2-byte alignment for compatibility */
+    #define _SS_ALIGNSIZE   2  
+    #define _SS_ALIGN_TYPE  unsigned short
+#endif
+
+#define _SS_MAXSIZE     128
+
+/* Calculate padding with processor-appropriate alignment */
+#define _SS_PAD1SIZE    ((2 * _SS_ALIGNSIZE - sizeof(sa_family_t)) % _SS_ALIGNSIZE)
+#define _SS_PAD2SIZE_CALC (_SS_MAXSIZE - (sizeof(sa_family_t) + _SS_PAD1SIZE + _SS_ALIGNSIZE))
+#define _SS_PAD2SIZE    ((_SS_PAD2SIZE_CALC < 0) ? 0 : _SS_PAD2SIZE_CALC)
+#define _SS_ALIGN_COUNT ((_SS_PAD2SIZE + sizeof(_SS_ALIGN_TYPE) - 1) / sizeof(_SS_ALIGN_TYPE))
+
+struct sockaddr_storage {
+    sa_family_t      ss_family;
+    char             __ss_pad1[_SS_PAD1SIZE];
+    _SS_ALIGN_TYPE   __ss_align[_SS_ALIGN_COUNT > 0 ? _SS_ALIGN_COUNT : 1];
+};
 
 /* Bits in the FLAGS argument to `send', `recv', et al.  */
 enum
