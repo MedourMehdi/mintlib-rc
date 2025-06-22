@@ -157,7 +157,6 @@ struct	ifreq {
 #define	ifr_broadaddr	ifr_ifru.ifru_broadaddr	/* broadcast address */
 #define	ifr_netmask	ifr_ifru.ifru_netmask	/* netmask */
 #define	ifr_flags	ifr_ifru.ifru_flags	/* flags */
-#define	ifr_ifindex	ifr_ifru.ifru_ifindex	/* ifindex */
 #define	ifr_metric	ifr_ifru.ifru_metric	/* metric */
 #define ifr_mtu		ifr_ifru.ifru_mtu	/* mtu */
 #define ifr_stats	ifr_ifru.ifru_stats	/* statistics */
