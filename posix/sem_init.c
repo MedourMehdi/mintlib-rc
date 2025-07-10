@@ -1,58 +1,66 @@
-/*
- *   M.Medour 2023/05/24
- *   rev.1 
- *   semaphore.h for freemint
- */
-
-/* Adapted to MiNTLib by Thorsten Otto */
-
+#include <semaphore.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <mint/mintbind.h>
-#include <errno.h>
-#include "semaphoreP.h"
 
-static long gen_sem_id(void)
-{
-	int n;
-	static char const charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-	long sem_id = 0;
+char *gen_sem_id(int16_t length) {
+    int n;
+    static char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";        
+    char *randomString = NULL;
 
-	for (n = 0; n < 4; n++)
-	{
-		int key = (short)rand() % (short) (sizeof(charset) - 1);
+    if (length) {
+        randomString = (char*)Mxalloc(sizeof(char) * (length + 1), 3);
 
-		sem_id <<= 8;
-		sem_id |= charset[key];
-	}
-	return sem_id;
+        if (randomString) {            
+            for (n = 0; n < length; n++) {            
+                int key = rand() % (int)(sizeof(charset) - 1);
+                randomString[n] = charset[key];
+            }
+
+            randomString[length] = '\0';
+        }
+    }
+
+    return randomString;
 }
 
 int sem_init(sem_t *sem, int pshared, unsigned int value)
 {
-	long ret;
+    int32_t sem_id;
 
-	if (value > SEM_VALUE_MAX)
-	{
-		__set_errno(EINVAL);
-		return -1;
-	}
-	/* pshared is currently unused */
-	sem->__private = pshared ? 1 : 0;
-	/* Use the values the caller provided.  */
-	sem->value = value << SEM_VALUE_SHIFT;
-	sem->nwaiters = 0;
+    if (!sem) {
+        errno = EINVAL;
+        return -1;
+    }
 
-	do
-	{
-		sem->sem_id = gen_sem_id();
-		ret = Psemaphore(0, sem->sem_id, 0);
-	} while (ret == -EACCES);
-	if (ret != 0)
-	{
-		/* no attempt to emulate this on Single-TOS */
-		__set_errno(-(int)ret);
-		return -1;
-	}
+    if (value > SEM_VALUE_MAX) {
+        errno = EINVAL;
+        return -1;
+    }
 
-	return 0;
+    if (pshared > 0) {
+        errno = ENOSYS;
+        return -1;
+    }
+
+    sem->sem_id = gen_sem_id(4);
+    if (!sem->sem_id) {
+        errno = ENOMEM;
+        return -1;
+    }
+
+    sem_id = ((int32_t)sem->sem_id[0] << 24) | 
+             ((int32_t)sem->sem_id[1] << 16) | 
+             ((int32_t)sem->sem_id[2] << 8) | 
+             (int32_t)sem->sem_id[3];
+
+    sem->max_count = value;
+    sem->io_count = 0;
+
+    if (Psemaphore(0, sem_id, 0) < 0) {
+        Mfree(sem->sem_id);
+        return -1;
+    }
+
+    return 0;
 }

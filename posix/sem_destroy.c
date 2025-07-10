@@ -1,27 +1,31 @@
-/*
- *   M.Medour 2023/05/24
- *   rev.1 
- *   semaphore.h for freemint
- */
-
-/* Adapted to MiNTLib by Thorsten Otto */
-
-#include <stdlib.h>
-#include <mint/mintbind.h>
+#include <semaphore.h>
 #include <errno.h>
-#include "semaphoreP.h"
+#include <mint/mintbind.h>
 
-/* We're done with the semaphore, destroy it. */
 int sem_destroy(sem_t *sem)
 {
-	/* XXX Check for valid parameter.  */
-	long ret;
+    int32_t sem_id;
+    int ret;
 
-	ret = Psemaphore(1, sem->sem_id, 0);
-	if (ret < 0)
-	{
-		__set_errno(-(int)ret);
-		return -1;
-	}
-	return 0;
+    if (!sem) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    if (!sem->sem_id) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    sem_id = ((int32_t)sem->sem_id[0] << 24) | 
+             ((int32_t)sem->sem_id[1] << 16) | 
+             ((int32_t)sem->sem_id[2] << 8) | 
+             (int32_t)sem->sem_id[3];
+
+    ret = Psemaphore(1, &sem_id, 0);
+    
+    Mfree(sem->sem_id);
+    sem->sem_id = NULL;
+    
+    return ret;
 }

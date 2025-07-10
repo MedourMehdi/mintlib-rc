@@ -1,39 +1,42 @@
-/* Copyright (C) 2002-2023 Free Software Foundation, Inc.
-   This file is part of the GNU C Library.
-
-   The GNU C Library is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Lesser General Public
-   License as published by the Free Software Foundation; either
-   version 2.1 of the License, or (at your option) any later version.
-
-   The GNU C Library is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Lesser General Public License for more details.
-
-   You should have received a copy of the GNU Lesser General Public
-   License along with the GNU C Library; if not, see
-   <https://www.gnu.org/licenses/>.  */
-
-/* Adapted to MiNTLib by Thorsten Otto */
-
-#include <stdlib.h>
+#include <semaphore.h>
 #include <errno.h>
-#include <mint/mintbind.h>
-#include "semaphoreP.h"
+#include <string.h>
+#include <stdio.h>
+#include <unistd.h>
 
-
-int sem_close(sem_t *sem_ptr)
+int sem_close(sem_t* sem)
 {
-/*
-	if (sem_ptr == SEM_FAILED)
-	{
-		__set_errno(EINVAL);
-		return -1;
-	}
-*/
+    char sem_path[12] = {'\0'};
+    sem_t* sem_ptr;
 
-	Mfree(sem_ptr);
+    if (!sem) {
+        errno = EINVAL;
+        return -1;
+    }
 
-	return 0;
+    if (!sem->sem_id) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    strcpy(&sem_path[0], "/U/SHM");
+    strcpy(&sem_path[6], sem->sem_id);
+
+    if (access(sem_path, W_OK) != 0) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    sem_ptr = sem_open(sem->sem_id, 0);
+
+    if (sem_ptr == SEM_FAILED) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    if (sem_ptr->io_count > 0) {
+        sem_ptr->io_count--;
+    }
+
+    return 0;
 }

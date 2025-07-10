@@ -44,7 +44,6 @@ SRCFILES = \
 	sem_open.c \
 	sem_close.c \
 	sem_unlink.c \
-	shm-directory.c \
 	sleep.c \
 	sysconf.c \
 	system.c \

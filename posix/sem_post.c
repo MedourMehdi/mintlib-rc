@@ -1,43 +1,37 @@
-/*
- *   M.Medour 2023/05/24
- *   rev.1 
- *   semaphore.h for freemint
- */
-
-/* Adapted to MiNTLib by Thorsten Otto */
-
-#include <stdlib.h>
-#include <mint/mintbind.h>
+#include <semaphore.h>
 #include <errno.h>
-#include "semaphoreP.h"
+#include <mint/mintbind.h>
 
-/* See sem_wait for an explanation of the algorithm.  */
 int sem_post(sem_t *sem)
 {
-	long ret;
-	/* Add a token to the semaphore */
-	unsigned long v = atomic_load_relaxed(&sem->value);
+    int32_t sem_id;
 
-	do
-	{
-		if ((v >> SEM_VALUE_SHIFT) == SEM_VALUE_MAX)
-		{
-			__set_errno(EOVERFLOW);
-			return -1;
-		}
-	} while (!atomic_compare_exchange_weak_release(&sem->value, &v, v + (1 << SEM_VALUE_SHIFT)));
+    if (!sem) {
+        errno = EINVAL;
+        return -1;
+    }
 
-	/* If there is any potentially blocked waiter, wake one of them.  */
-#if 0
-	if ((v & SEM_NWAITERS_MASK) != 0)
-		futex_wake(&sem->value, 1, sem->__private);
-#endif
-	ret = Psemaphore(3, sem->sem_id, 0);
-	if (ret < 0)
-	{
-		__set_errno(-(int)ret);
-		return -1;
-	}
+    if (!sem->sem_id) {
+        errno = EINVAL;
+        return -1;
+    }
 
-	return 0;
+    sem_id = ((int32_t)sem->sem_id[0] << 24) | 
+             ((int32_t)sem->sem_id[1] << 16) | 
+             ((int32_t)sem->sem_id[2] << 8) | 
+             (int32_t)sem->sem_id[3];
+
+    if (sem->max_count >= SEM_VALUE_MAX) {
+        errno = EOVERFLOW;
+        return -1;
+    }
+
+    sem->max_count++;
+    
+    if (Psemaphore(3, sem_id, 0) < 0) {
+        sem->max_count--; /* Rollback on error */
+        return -1;
+    }
+
+    return 0;
 }

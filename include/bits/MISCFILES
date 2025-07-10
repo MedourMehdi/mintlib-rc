@@ -24,7 +24,6 @@ MISCFILES = MISCFILES \
 	sched.h \
 	select.h \
 	sem.h \
-	semaphore.h \
 	shm.h \
 	sigaction.h \
 	sigcontext.h \
