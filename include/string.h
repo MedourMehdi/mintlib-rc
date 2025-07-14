@@ -80,6 +80,7 @@ __EXTERN int strcoll __P ((const char* __s1, const char* __s2));
 __EXTERN size_t strxfrm __P ((char* __dest,
 			      const char* __src, size_t __n));
 
+__EXTERN size_t strnlen (const char* s, size_t max);
 
 #if defined __USE_SVID || defined __USE_BSD || defined __USE_XOPEN_EXTENDED
 /* Duplicate S, returning an identical malloc'd string.  */

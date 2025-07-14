@@ -4,9 +4,31 @@
 #include <unistd.h>
 #include <sched.h>
 #include <sys/types.h>
+#include <pthread.h>
 #include <mint/mintbind.h>
+#include "pthread_internal.h"
 
-int sem_unlink(const char* name)
+__typeof__(sem_unlink) __sem_unlink;
+
+/**
+ * @brief Unlink a named semaphore.
+ *
+ * @param name The name of the semaphore to be unlinked.
+ *
+ * @return 0 on success, -1 on error.
+ *
+ * @details Named semaphores are only supported in single-threaded mode.
+ *          Returns ENOSYS if called in multithreaded mode.
+ *          Returns EINVAL if name is NULL or name is too long.
+ *          Returns EACCES if the named semaphore could not be opened for writing.
+ *          Returns ENOENT if the named semaphore does not exist.
+ *
+ *          Unlinks the named semaphore and frees the memory allocated for it.
+ *          Decrements the io_count of the semaphore.
+ *          Forks a process to handle the actual unlinking.
+ *          The parent process returns immediately.
+ */
+int __sem_unlink(const char* name)
 {
     char sem_path[12] = {'\0'};
     int32_t sem_id;
@@ -14,6 +36,11 @@ int sem_unlink(const char* name)
     sem_t* sem_ptr;
     pid_t this_fork;
 
+    /* Named semaphores are only supported in single-threaded mode */
+    if (_sem_is_multithreaded()) {
+        errno = ENOSYS;
+        return -1;
+    }
     if (!name) {
         errno = EINVAL;
         return -1;
@@ -85,3 +112,5 @@ int sem_unlink(const char* name)
     /* Parent process returns immediately */
     return 0;
 }
+
+weak_alias (__sem_unlink, sem_unlink)

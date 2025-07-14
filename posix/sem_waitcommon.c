@@ -2,13 +2,39 @@
 #include <errno.h>
 #include <time.h>
 #include <sched.h>
+#include <pthread.h>
 #include <mint/mintbind.h>
+#include "pthread_internal.h"
 
-int sem_waitcommon(sem_t *sem, int blocking, const struct timespec *abs_timeout, clockid_t clock_id)
+__typeof__(sem_waitcommon) __sem_waitcommon;
+
+/**
+ * @brief Internal helper function for sem_clockwait, sem_wait, sem_timedwait, sem_trywait.
+ *
+ * @param sem Pointer to the semaphore structure.
+ * @param blocking Whether to block (1) or not (0).
+ * @param abs_timeout Absolute timeout as a `timespec` structure, or NULL for infinite wait.
+ * @param clock_id The clock against which the timeout is measured.
+ * @return 0 on success, -1 on failure with `errno` set to indicate the error.
+ *
+ * @details This function is only used in single-threaded mode.
+ *          Returns ENOSYS if called in multithreaded mode.
+ *          Returns EINVAL if sem is NULL or sem->sem_id is NULL.
+ *          Returns EINVAL if the semaphore could not be accessed.
+ *          Returns EAGAIN if the semaphore value is zero and blocking is 0.
+ *          Returns ETIMEDOUT if the semaphore value is zero and the specified timeout has passed.
+ */
+int __sem_waitcommon(sem_t *sem, int blocking, const struct timespec *abs_timeout, clockid_t clock_id)
 {
     int32_t sem_id;
     struct timespec now;
     int timeout_ms = -1;
+
+    /* This function is only used in single-threaded mode */
+    if (_sem_is_multithreaded()) {
+        errno = ENOSYS;
+        return -1;
+    }
 
     if (!sem) {
         errno = EINVAL;
@@ -88,3 +114,5 @@ int sem_waitcommon(sem_t *sem, int blocking, const struct timespec *abs_timeout,
 
     return 0;
 }
+
+weak_alias (__sem_waitcommon, sem_waitcommon)

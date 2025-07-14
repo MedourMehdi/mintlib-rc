@@ -20,14 +20,17 @@ extern "C" {
 
 typedef struct
 {
-    int max_count;
-    int io_count;    
+    /* Non threaded values */
+    volatile unsigned short max_count;
+    volatile unsigned short io_count;
     char *sem_id;
+    /* pthread used values */
+    volatile unsigned short count;
+    struct thread *wait_queue;
 } sem_t;
 
-/* Internal helper functions */
-char *gen_sem_id(int16_t length);
-int32_t sem_id_from_name(const char *name);
+/* Internal function to check if we're in multithreaded mode */
+int _sem_is_multithreaded(void);
 
 /* POSIX semaphore functions */
 int sem_init(sem_t *sem, int pshared, unsigned int value);

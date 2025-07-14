@@ -56,6 +56,7 @@ MISCFILES = 00README COPYMINT COPYING COPYING.LIB MISCFILES \
 	poll.h \
 	process.h \
 	printf.h \
+	pthread.h \
 	pty.h \
 	pwd.h \
 	re_comp.h \

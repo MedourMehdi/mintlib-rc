@@ -25,6 +25,20 @@ SRCFILES = \
 	clock_nanosleep.c \
 	nl_types.c \
 	langinfo.c \
+	pthread_attr.c \
+	pthread_barrier.c \
+	pthread_cancel.c \
+	pthread_cond.c \
+	pthread_create.c \
+	pthread_key.c \
+	pthread_mutex.c \
+	pthread_rwlock.c \
+	pthread_sched.c \
+	pthread_signal.c \
+	pthread_spin.c	\
+	pthread_cleanup.c \
+	pthread_pool.c \
+	pthread_nonportable.c \
 	posix_fallocate.c \
 	pread.c \
 	pwrite.c \

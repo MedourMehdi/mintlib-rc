@@ -5,10 +5,38 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdarg.h>
+#include <pthread.h>
 #include <mint/mintbind.h>
 #include <mint/dcntl.h>
+#include "pthread_internal.h"
 
-sem_t *sem_open(const char* name, int oflag, ...)
+__typeof__(sem_open) __sem_open;
+
+/**
+ * @brief Opens or creates a named semaphore.
+ *
+ * @param name The name of the semaphore. It must start with a '/' and 
+ *        not exceed SEM_NAME_MAX characters. The name cannot be "/" or start with '_'.
+ * @param oflag Flags indicating the action: O_CREAT to create a new semaphore,
+ *        optionally combined with O_EXCL to ensure the semaphore does not
+ *        already exist.
+ * @param ... Additional arguments when O_CREAT is specified: mode_t mode for
+ *        permissions and unsigned int value for initial semaphore value.
+ *
+ * @return A pointer to the semaphore on success, SEM_FAILED on error.
+ *
+ * @details Named semaphores are only supported in single-threaded mode.
+ *          Returns ENOSYS if called in multithreaded mode.
+ *          Returns EINVAL if name is NULL, invalid, or too long.
+ *          Returns ENAMETOOLONG if name exceeds SEM_NAME_MAX.
+ *          Returns EEXIST if O_EXCL is set and semaphore exists.
+ *          Returns ENOMEM if memory allocation fails.
+ *          Returns EACCES if access permissions are insufficient.
+ *          Returns ENOENT if the semaphore does not exist.
+ *          Returns EMFILE if the maximum number of file handles is reached.
+ */
+
+sem_t *__sem_open(const char* name, int oflag, ...)
 {
     char sem_path[12] = {'\0'};
     sem_t* sem_ptr = NULL;
@@ -17,6 +45,12 @@ sem_t *sem_open(const char* name, int oflag, ...)
     mode_t mode = 0;
     unsigned int value = 0;
     va_list args;
+
+    /* Named semaphores are only supported in single-threaded mode */
+    if (_sem_is_multithreaded()) {
+        errno = ENOSYS;
+        return SEM_FAILED;
+    }
 
     if (!name) {
         errno = EINVAL;
@@ -93,6 +127,10 @@ sem_t *sem_open(const char* name, int oflag, ...)
             return SEM_FAILED;
         }
 
+        /* Initialize unified structure fields */
+        sem_ptr->count = 0;
+        sem_ptr->wait_queue = NULL;
+
         sem_ptr->sem_id = (char*)Mxalloc(SEM_NAME_MAX + 1, 3);
         if (!sem_ptr->sem_id) {
             Mfree(sem_ptr);
@@ -131,7 +169,11 @@ sem_t *sem_open(const char* name, int oflag, ...)
             errno = EACCES;
             return SEM_FAILED;
         }
-        
+
+        /* Initialize unified structure fields for existing semaphore */
+        sem_ptr->count = 0;
+        sem_ptr->wait_queue = NULL;
+
         handle = Fopen(sem_path, 0x0001);
         if (handle < 0) {
             errno = EACCES;
@@ -152,3 +194,5 @@ sem_t *sem_open(const char* name, int oflag, ...)
 
     return sem_ptr;
 }
+
+weak_alias (__sem_open, sem_open)

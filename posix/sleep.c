@@ -10,6 +10,8 @@
 #include <mint/mintbind.h>
 
 #include "lib.h"
+#include <pthread.h>
+#include "pthread_internal.h"
 
 /* _clock() has a rez of CLOCKS_PER_SEC ticks/sec */
 clock_t _clock (void);
@@ -36,6 +38,25 @@ alarm_catch (long signum)
 	return;
 }
 
+/**
+ * Sleep for a specified number of seconds.
+ *
+ * This function suspends the execution of the calling thread for at least 
+ * the specified number of seconds. If the calling environment is 
+ * multithreaded and the calling thread is not the main thread, it uses 
+ * `msleep` for sleeping. If the specified time is zero, the function returns 
+ * immediately.
+ *
+ * The function handles alarm signals by temporarily blocking all signals, 
+ * installing an alarm handler, and ensuring the alarm signal can interrupt 
+ * the sleep. The original alarm, signal handler, and signal mask are restored 
+ * after the sleep period.
+ *
+ * @param n The number of seconds to sleep.
+ * @return The number of seconds left to sleep if interrupted by a signal, 
+ *         otherwise zero.
+ */
+
 unsigned int
 __sleep (unsigned int n)
 {
@@ -46,6 +67,11 @@ __sleep (unsigned int n)
 	long remain;
 
 	if (__mint) {
+		/* Check if we're in a multithreaded environment and not the main thread */
+		if (pthread_is_multithreaded_np() && pthread_self() > 0) {
+			/* Use pthread sleep for multithreaded environment */
+			return msleep(n * 1000) == 0 ? 0 : n;
+		}		
 		if (n == 0)
 			return 0;
 		/* Clear any existing alarm, but save its expire time.

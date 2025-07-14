@@ -4,11 +4,18 @@
 #include <mint/mintbind.h>
 #include <errno.h>
 #include <sched.h>
+#include <pthread.h>
 
 int 
 sched_yield (void)
 {
 	int y;
+
+	/* Check if we're in a multithreaded environment and not the main thread */
+	if (pthread_is_multithreaded_np() && pthread_self() > 0) {
+		/* Use pthread yield for multithreaded environment */
+		return pthread_yield();
+	}
 
 	y = Syield();
 	if (y < 0) {
