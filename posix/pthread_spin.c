@@ -229,36 +229,36 @@ int pthread_spin_destroy(pthread_spinlock_t *lock) {
     }
 }
 
-// Lock function using kernel atomic operations
-int pthread_spin_lock(pthread_spinlock_t *lock) {
-    if (!lock || !*lock) return EINVAL;
+// // Lock function using kernel atomic operations
+// int pthread_spin_lock(pthread_spinlock_t *lock) {
+//     if (!lock || !*lock) return EINVAL;
     
-    if (is_private_lock(lock)) {
-        // Private lock
-        pthread_spin_private_t *private_lock = (pthread_spin_private_t *)*lock;
-        while (1) {
-            // Use kernel CAS to acquire lock - CAS returns 1 for success
-            if (sys_p_thread_atomic(THREAD_ATOMIC_CAS, (long)&private_lock->lock, 0, 1) == 1) {
-                return 0;  // Successfully acquired lock
-            }
-            sys_p_thread_sync(THREAD_SYNC_YIELD, 0, 0);
-        }
-    } else {
-        // Shared lock
-        pthread_spin_local_t *local = (pthread_spin_local_t *)*lock;
-        pthread_spin_shm_t *shm = local->shm_ptr;
+//     if (is_private_lock(lock)) {
+//         // Private lock
+//         pthread_spin_private_t *private_lock = (pthread_spin_private_t *)*lock;
+//         while (1) {
+//             // Use kernel CAS to acquire lock - CAS returns 1 for success
+//             if (sys_p_thread_atomic(THREAD_ATOMIC_CAS, (long)&private_lock->lock, 0, 1) == 1) {
+//                 return 0;  // Successfully acquired lock
+//             }
+//             sys_p_thread_sync(THREAD_SYNC_YIELD, 0, 0);
+//         }
+//     } else {
+//         // Shared lock
+//         pthread_spin_local_t *local = (pthread_spin_local_t *)*lock;
+//         pthread_spin_shm_t *shm = local->shm_ptr;
         
-        if (!local || !shm) return EINVAL;
+//         if (!local || !shm) return EINVAL;
         
-        while (1) {
-            // Use kernel CAS to acquire lock - CAS returns 1 for success
-            if (sys_p_thread_atomic(THREAD_ATOMIC_CAS, (long)&shm->lock, 0, 1) == 1) {
-                return 0;  // Successfully acquired lock
-            }
-            sys_p_thread_sync(THREAD_SYNC_YIELD, 0, 0);
-        }
-    }
-}
+//         while (1) {
+//             // Use kernel CAS to acquire lock - CAS returns 1 for success
+//             if (sys_p_thread_atomic(THREAD_ATOMIC_CAS, (long)&shm->lock, 0, 1) == 1) {
+//                 return 0;  // Successfully acquired lock
+//             }
+//             sys_p_thread_sync(THREAD_SYNC_YIELD, 0, 0);
+//         }
+//     }
+// }
 
 // Trylock using kernel CAS
 int pthread_spin_trylock(pthread_spinlock_t *lock) {
@@ -280,25 +280,25 @@ int pthread_spin_trylock(pthread_spinlock_t *lock) {
     }
 }
 
-// Unlock function using kernel exchange
-int pthread_spin_unlock(pthread_spinlock_t *lock) {
-    if (!lock || !*lock) return EINVAL;
+// // Unlock function using kernel exchange
+// int pthread_spin_unlock(pthread_spinlock_t *lock) {
+//     if (!lock || !*lock) return EINVAL;
     
-    if (is_private_lock(lock)) {
-        // Private lock
-        pthread_spin_private_t *private_lock = (pthread_spin_private_t *)*lock;
-        sys_p_thread_atomic(THREAD_ATOMIC_EXCHANGE, (long)&private_lock->lock, 0, 0);
-    } else {
-        // Shared lock
-        pthread_spin_local_t *local = (pthread_spin_local_t *)*lock;
-        if (local && local->shm_ptr) {
-            sys_p_thread_atomic(THREAD_ATOMIC_EXCHANGE, (long)&local->shm_ptr->lock, 0, 0);
-        } else {
-            return EINVAL;
-        }
-    }
-    return 0;
-}
+//     if (is_private_lock(lock)) {
+//         // Private lock
+//         pthread_spin_private_t *private_lock = (pthread_spin_private_t *)*lock;
+//         sys_p_thread_atomic(THREAD_ATOMIC_EXCHANGE, (long)&private_lock->lock, 0, 0);
+//     } else {
+//         // Shared lock
+//         pthread_spin_local_t *local = (pthread_spin_local_t *)*lock;
+//         if (local && local->shm_ptr) {
+//             sys_p_thread_atomic(THREAD_ATOMIC_EXCHANGE, (long)&local->shm_ptr->lock, 0, 0);
+//         } else {
+//             return EINVAL;
+//         }
+//     }
+//     return 0;
+// }
 
 // /**
 //  * Attach to existing shared spinlock - corrected version
@@ -381,6 +381,105 @@ int pthread_spin_unlock(pthread_spinlock_t *lock) {
 //     *lock = (pthread_spinlock_t)local;
 //     return 0;
 // }
+
+// Helper function to detect if this is a file-based shared lock
+static int is_file_based_lock(pthread_spinlock_t *lock) {
+    pthread_spin_local_t *local = NULL;
+
+    if (is_private_lock(lock)) return 0;
+    
+    local = (pthread_spin_local_t *)*lock;
+    // If is_creator is 0, this was created via pthread_spin_attach (file-based)
+    // If is_creator is 1, this was created via pthread_spin_init (true shared memory)
+    return (local && !local->is_creator);
+}
+
+// Helper function to sync file-based shared memory
+static int sync_file_based_lock(pthread_spin_local_t *local, int write_back) {
+    long size = sizeof(pthread_spin_shm_t);
+    
+    if (write_back) {
+        Fseek(0, local->file_handle, SEEK_SET);
+        return (Fwrite(local->file_handle, size, local->shm_ptr) == size) ? 0 : -1;
+    } else {
+        Fseek(0, local->file_handle, SEEK_SET);
+        return (Fread(local->file_handle, size, local->shm_ptr) == size) ? 0 : -1;
+    }
+}
+
+// Modified lock function
+int pthread_spin_lock(pthread_spinlock_t *lock) {
+    if (!lock || !*lock) return EINVAL;
+    
+    if (is_private_lock(lock)) {
+        // Private lock - unchanged
+        pthread_spin_private_t *private_lock = (pthread_spin_private_t *)*lock;
+        while (1) {
+            if (sys_p_thread_atomic(THREAD_ATOMIC_CAS, (long)&private_lock->lock, 0, 1) == 1) {
+                return 0;
+            }
+            sys_p_thread_sync(THREAD_SYNC_YIELD, 0, 0);
+        }
+    } else {
+        pthread_spin_local_t *local = (pthread_spin_local_t *)*lock;
+        pthread_spin_shm_t *shm = local->shm_ptr;
+        
+        if (!local || !shm) return EINVAL;
+        
+        if (is_file_based_lock(lock)) {
+            // File-based shared lock
+            while (1) {
+                // Read current state from file
+                if (sync_file_based_lock(local, 0) < 0) return EIO;
+                
+                // Try to acquire lock
+                if (shm->lock == 0) {
+                    shm->lock = 1;
+                    if (sync_file_based_lock(local, 1) < 0) return EIO;
+                    
+                    // Verify we got it
+                    if (sync_file_based_lock(local, 0) < 0) return EIO;
+                    if (shm->lock == 1) return 0;
+                }
+                sys_p_thread_sync(THREAD_SYNC_YIELD, 0, 0);
+            }
+        } else {
+            // True shared memory lock
+            while (1) {
+                if (sys_p_thread_atomic(THREAD_ATOMIC_CAS, (long)&shm->lock, 0, 1) == 1) {
+                    return 0;
+                }
+                sys_p_thread_sync(THREAD_SYNC_YIELD, 0, 0);
+            }
+        }
+    }
+}
+
+// Modified unlock function
+int pthread_spin_unlock(pthread_spinlock_t *lock) {
+    if (!lock || !*lock) return EINVAL;
+    
+    if (is_private_lock(lock)) {
+        // Private lock - unchanged
+        pthread_spin_private_t *private_lock = (pthread_spin_private_t *)*lock;
+        sys_p_thread_atomic(THREAD_ATOMIC_EXCHANGE, (long)&private_lock->lock, 0, 0);
+    } else {
+        pthread_spin_local_t *local = (pthread_spin_local_t *)*lock;
+        if (local && local->shm_ptr) {
+            if (is_file_based_lock(lock)) {
+                // File-based shared lock
+                local->shm_ptr->lock = 0;
+                if (sync_file_based_lock(local, 1) < 0) return EIO;
+            } else {
+                // True shared memory lock
+                sys_p_thread_atomic(THREAD_ATOMIC_EXCHANGE, (long)&local->shm_ptr->lock, 0, 0);
+            }
+        } else {
+            return EINVAL;
+        }
+    }
+    return 0;
+}
 
 /**
  * File-based implementation that doesn't rely on shared memory mapping
