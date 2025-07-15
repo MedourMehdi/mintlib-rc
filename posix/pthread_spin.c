@@ -300,13 +300,96 @@ int pthread_spin_unlock(pthread_spinlock_t *lock) {
     return 0;
 }
 
+// /**
+//  * Attach to existing shared spinlock - corrected version
+//  */
+// int pthread_spin_attach(pthread_spinlock_t *lock, const char *shm_path) {
+//     pthread_spin_local_t *local = NULL;
+//     pthread_spin_shm_t *shm_mem = NULL;
+//     long file_handle;
+//     int timeout;
+//     volatile int test_access;
+
+//     if (!lock || !shm_path) return EINVAL;
+    
+//     // Allocate local structure
+//     local = (pthread_spin_local_t*)Mxalloc(sizeof(pthread_spin_local_t), MX_PREFTTRAM);
+//     if (!local) return ENOMEM;
+//     memset(local, 0, sizeof(pthread_spin_local_t));
+    
+//     // Copy shared memory path
+//     local->shm_path = (char*)Mxalloc(strlen(shm_path) + 1, MX_PREFTTRAM);
+//     if (!local->shm_path) {
+//         Mfree(local);
+//         return ENOMEM;
+//     }
+//     strcpy(local->shm_path, shm_path);
+    
+//     // Open existing shared memory file
+//     file_handle = Fopen(shm_path, O_RDWR);
+//     if (file_handle < 0) {
+//         Mfree(local->shm_path);
+//         Mfree(local);
+//         return -file_handle;
+//     }
+    
+//     // Get the existing shared memory block (don't try to set a new one)
+//     if (Fcntl(file_handle, &shm_mem, SHMGETBLK) < 0) {
+//         Fclose(file_handle);
+//         Mfree(local->shm_path);
+//         Mfree(local);
+//         return EIO;
+//     }
+    
+//     // Validate that we got a valid pointer
+//     if (!shm_mem) {
+//         Fclose(file_handle);
+//         Mfree(local->shm_path);
+//         Mfree(local);
+//         return EIO;
+//     }
+    
+//     // Test memory accessibility before using it
+//     __asm__ volatile (
+//         "move.l %1, %%a0\n\t"
+//         "move.l (%%a0), %0\n\t"
+//         : "=d" (test_access)
+//         : "a" (&shm_mem->initialized)
+//         : "a0", "memory"
+//     );
+    
+//     // Wait for initialization with timeout
+//     timeout = 1000; // 1000 yields = reasonable timeout
+//     while (!shm_mem->initialized && timeout-- > 0) {
+//         sys_p_thread_sync(THREAD_SYNC_YIELD, 0, 0);
+//     }
+    
+//     if (!shm_mem->initialized) {
+//         Fclose(file_handle);
+//         Mfree(local->shm_path);
+//         Mfree(local);
+//         return ETIMEDOUT;
+//     }
+    
+//     // Atomically increment reference count using kernel atomic
+//     sys_p_thread_atomic(THREAD_ATOMIC_INCREMENT, (long)&shm_mem->refcount, 0, 0);
+    
+//     local->shm_ptr = shm_mem;
+//     local->file_handle = file_handle;
+//     local->is_creator = 0;
+    
+//     *lock = (pthread_spinlock_t)local;
+//     return 0;
+// }
+
 /**
- * Attach to existing shared spinlock
+ * File-based implementation that doesn't rely on shared memory mapping
  */
 int pthread_spin_attach(pthread_spinlock_t *lock, const char *shm_path) {
     pthread_spin_local_t *local = NULL;
     pthread_spin_shm_t *shm_mem = NULL;
     long file_handle;
+    long size = sizeof(pthread_spin_shm_t);
 
     if (!lock || !shm_path) return EINVAL;
     
@@ -323,7 +406,7 @@ int pthread_spin_attach(pthread_spinlock_t *lock, const char *shm_path) {
     }
     strcpy(local->shm_path, shm_path);
     
-    // Open existing shared memory
+    // Open existing shared memory file
     file_handle = Fopen(shm_path, O_RDWR);
     if (file_handle < 0) {
         Mfree(local->shm_path);
@@ -331,21 +414,50 @@ int pthread_spin_attach(pthread_spinlock_t *lock, const char *shm_path) {
         return -file_handle;
     }
     
-    // Get shared memory block
-    if (Fcntl(file_handle, &shm_mem, SHMGETBLK) < 0) {
+    // Allocate local memory for our copy of the shared structure
+    shm_mem = (pthread_spin_shm_t *)Mxalloc(size, MX_PREFTTRAM);
+    if (!shm_mem) {
         Fclose(file_handle);
         Mfree(local->shm_path);
         Mfree(local);
-        return EIO;
+        return ENOMEM;
+    }
+    
+    // Read current state from file
+    Fseek(0, file_handle, SEEK_SET);
+    if (Fread(file_handle, size, shm_mem) != size) {
+        // Wait for parent to write initial state
+        int retries = 100;
+        while (retries-- > 0) {
+            sys_p_thread_sync(THREAD_SYNC_YIELD, 0, 0);
+            Fseek(0, file_handle, SEEK_SET);
+            if (Fread(file_handle, size, shm_mem) == size) {
+                break;
+            }
+        }
+        if (retries <= 0) {
+            Mfree(shm_mem);
+            Fclose(file_handle);
+            Mfree(local->shm_path);
+            Mfree(local);
+            return EIO;
+        }
     }
     
     // Wait for initialization
     while (!shm_mem->initialized) {
         sys_p_thread_sync(THREAD_SYNC_YIELD, 0, 0);
+        // Re-read from file to check initialization status
+        Fseek(0, file_handle, SEEK_SET);
+        Fread(file_handle, size, shm_mem);
     }
     
-    // Atomically increment reference count using kernel atomic
-    sys_p_thread_atomic(THREAD_ATOMIC_INCREMENT, (long)&shm_mem->refcount, 0, 0);
+    // Increment reference count (we'll need to read-modify-write via file)
+    shm_mem->refcount++;
+    
+    // Write back the updated structure
+    Fseek(0, file_handle, SEEK_SET);
+    Fwrite(file_handle, size, shm_mem);
     
     local->shm_ptr = shm_mem;
     local->file_handle = file_handle;
