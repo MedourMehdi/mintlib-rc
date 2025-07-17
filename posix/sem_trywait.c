@@ -29,23 +29,34 @@ int __sem_trywait(sem_t *sem)
     }
 
     if (_sem_is_multithreaded()) {
-        /* Multithreaded mode: use pthread semaphore implementation */
-        /* Check if semaphore has available count atomically */
-        unsigned short sr = 0;
-        asm volatile ("move.w %%sr,%0" : "=d" (sr));
-#ifdef __mcoldfire__
-        asm volatile ("move.w #0x2700,%%sr" : : : "memory");
-#else
-        asm volatile ("ori.w #0x0700,%%sr" : : : "memory");
-#endif
+
+        unsigned short old_count = sem->count;
+
+        /* Multithreaded mode: use atomic syscall for check-and-decrement */
+        /* Try to atomically decrement count if it's > 0 */
         
-        if (sem->count > 0) {
-            sem->count--;
-            asm volatile ("move.w %0,%%sr" : : "d" (sr) : "memory");
-            return 0;
+        /* First check if count > 0 without decrementing */
+        if (sem->count <= 0) {
+            errno = EAGAIN;
+            return -1;
         }
         
-        asm volatile ("move.w %0,%%sr" : : "d" (sr) : "memory");
+        /* Use atomic compare-and-swap to decrement if still > 0 */
+        /* This will atomically check if count > 0 and decrement if so */
+        
+        while (old_count > 0) {
+            /* Try to CAS from old_count to old_count-1 */
+            if (sys_p_thread_atomic(THREAD_ATOMIC_CAS, (long)&sem->count, (long)old_count, (long)(old_count - 1)) == 1) {
+                /* Successfully decremented */
+                return 0;
+            }
+            /* CAS failed, re-read current value and try again */
+            old_count = sem->count;
+            /* Yield to other threads to avoid busy-waiting */
+            sys_p_thread_sync(THREAD_SYNC_YIELD, 0, 0);
+        }
+        
+        /* Count is 0, cannot decrement */
         errno = EAGAIN;
         return -1;
     } else {
