@@ -8,7 +8,9 @@
 extern "C" {
 #endif
 
-#define SEM_VALUE_MAX 32767
+#ifndef SEM_VALUE_MAX
+#define SEM_VALUE_MAX   (__INT_MAX__)
+#endif
 #define SEM_NAME_MAX    4
 #define SEM_FAILED ((sem_t *) 0) 
 

@@ -36,7 +36,8 @@ int __sem_destroy(sem_t *sem)
     }
     
     sem->count = 0;
-    sem->wait_queue = NULL;        
+    sem->wait_queue = NULL;
+    
     /* Single-threaded mode: use original implementation */
     if (!sem->sem_id) {
         errno = EINVAL;
@@ -48,7 +49,7 @@ int __sem_destroy(sem_t *sem)
             ((int32_t)sem->sem_id[2] << 8) | 
             (int32_t)sem->sem_id[3];
 
-    ret = Psemaphore(1, &sem_id, 0);
+    ret = Psemaphore(1, sem_id, 0);
     
     Mfree(sem->sem_id);
     sem->sem_id = NULL;

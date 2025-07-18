@@ -6,6 +6,7 @@
 #include <signal.h>
 #include <sched.h>
 #include <errno.h>
+#include <semaphore.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -31,11 +32,22 @@ typedef struct {
     int priority;
 } pthread_attr_t;
 
+/* Fast atomic operations using m68k TAS instruction */
+struct fast_lock {
+    volatile unsigned char tas_lock;    /* TAS lock byte - must be byte-aligned */
+    volatile unsigned char pad[3];      /* Padding for alignment */
+};
+
 /* Mutex types */
 typedef struct {
     volatile short locked;
-    void* owner;
-    void* wait_queue;
+    struct thread *owner;
+    struct thread *wait_queue;
+    struct fast_lock fast_lock;         /* Fast TAS-based lock for quick acquisition */
+    volatile unsigned short contention; /* Contention counter */
+    volatile unsigned short spin_count;  /* Adaptive spin count */
+    volatile unsigned short priority_ceiling; /* Priority ceiling for inheritance */
+    volatile unsigned short flags;       /* Mutex flags (recursive, etc.) */    
 } pthread_mutex_t;
 
 typedef struct {
@@ -44,11 +56,12 @@ typedef struct {
 
 /* Condition variable */
 typedef struct {
-    void* wait_queue;
-    void* associated_mutex;
-    unsigned long magic;
-    int destroyed;
-    long timeout_ms;
+    struct thread *wait_queue;      /* Queue of threads waiting on this condvar */
+    struct mutex *associated_mutex; /* Mutex associated with this condvar */
+    unsigned long magic;            /* Magic number for validation */
+    int destroyed;                  /* Flag indicating if condvar is destroyed */
+    struct fast_lock fast_lock;     /* Fast lock for condvar operations */    
+    long timeout_ms;                /* Timeout value in milliseconds */
 } pthread_cond_t;
 
 typedef struct {
