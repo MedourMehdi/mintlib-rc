@@ -1,23 +1,6 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-typedef struct thread_pool_task {
-    void (*function)(void *);
-    void *argument;
-    struct thread_pool_task *next;
-} thread_pool_task_t;
-
-struct thread_pool {
-    pthread_mutex_t lock;
-    pthread_cond_t notify;
-    pthread_t *threads;
-    thread_pool_task_t *queue;
-    int thread_count;
-    int queue_size;
-    int shutdown;
-    int started;
-};
-
 static void *thread_pool_worker(void *arg) {
     thread_pool_task_t *task = NULL;
     thread_pool_t *pool = (thread_pool_t *)arg;

@@ -32,35 +32,41 @@ typedef struct {
     int priority;
 } pthread_attr_t;
 
-/* Fast atomic operations using m68k TAS instruction */
-struct fast_lock {
-    volatile unsigned char tas_lock;    /* TAS lock byte - must be byte-aligned */
-    volatile unsigned char pad[3];      /* Padding for alignment */
-};
+/* Mutex types */
+#define PTHREAD_MUTEX_NORMAL      0
+#define PTHREAD_MUTEX_RECURSIVE   1
+#define PTHREAD_MUTEX_ERRORCHECK  2
+
+/* Priority protocols */
+#define PTHREAD_PRIO_NONE         0
+#define PTHREAD_PRIO_INHERIT      1
+#define PTHREAD_PRIO_PROTECT      2
 
 /* Mutex types */
 typedef struct {
-    volatile short locked;
-    struct thread *owner;
-    struct thread *wait_queue;
-    struct fast_lock fast_lock;         /* Fast TAS-based lock for quick acquisition */
-    volatile unsigned short contention; /* Contention counter */
-    volatile unsigned short spin_count;  /* Adaptive spin count */
-    volatile unsigned short priority_ceiling; /* Priority ceiling for inheritance */
-    volatile unsigned short flags;       /* Mutex flags (recursive, etc.) */    
+    void *owner;
+    void *wait_queue;    
+    int locked;
+    int protocol;              /* Priority protocol */
+    int type;                  /* Mutex type */
+    int prioceiling;           /* Priority ceiling */
+    int saved_priority;        /* Saved priority for ceiling protocol */
+    int lock_count;            /* Lock count for recursive mutexes */
 } pthread_mutex_t;
 
 typedef struct {
-    int type;
+    int type;                 /* Mutex type: NORMAL, RECURSIVE, ERRORCHECK */
+    int pshared;              /* Process-shared flag */
+    int protocol;             /* Priority protocol */
+    int prioceiling;          /* Priority ceiling value */
 } pthread_mutexattr_t;
 
 /* Condition variable */
 typedef struct {
-    struct thread *wait_queue;      /* Queue of threads waiting on this condvar */
+    void *wait_queue;      /* Queue of threads waiting on this condvar */
     struct mutex *associated_mutex; /* Mutex associated with this condvar */
     unsigned long magic;            /* Magic number for validation */
-    int destroyed;                  /* Flag indicating if condvar is destroyed */
-    struct fast_lock fast_lock;     /* Fast lock for condvar operations */    
+    int destroyed;                  /* Flag indicating if condvar is destroyed */   
     long timeout_ms;                /* Timeout value in milliseconds */
 } pthread_cond_t;
 
@@ -94,10 +100,23 @@ typedef struct {
 /* Spinlock */
 typedef int pthread_spinlock_t;
 
-/* Scheduling */
-// struct sched_param {
-//     int sched_priority;
-// };
+/* Thread pool structures */
+typedef struct thread_pool_task {
+    void (*function)(void *);
+    void *argument;
+    struct thread_pool_task *next;
+} thread_pool_task_t;
+
+typedef struct thread_pool {
+    pthread_mutex_t lock;
+    pthread_cond_t notify;
+    pthread_t *threads;
+    thread_pool_task_t *queue;
+    int thread_count;
+    int queue_size;
+    int shutdown;
+    int started;
+} thread_pool_t;
 
 /* Constants & Initializers */
 #define PTHREAD_CREATE_JOINABLE  0
@@ -109,7 +128,7 @@ typedef int pthread_spinlock_t;
 #define PTHREAD_MUTEX_DEFAULT    PTHREAD_MUTEX_NORMAL
 
 #define PTHREAD_ONCE_INIT        0
-#define PTHREAD_MUTEX_INITIALIZER {0, 0, NULL}
+#define PTHREAD_MUTEX_INITIALIZER {NULL, NULL, 0, 0, 0, 0, 0, 0}
 #define PTHREAD_RWLOCK_INITIALIZER 0
 #define PTHREAD_COND_INITIALIZER {NULL, NULL, 0xC0DEC0DE, 0, 0}
 
@@ -155,6 +174,10 @@ int pthread_mutexattr_init(pthread_mutexattr_t *attr);
 int pthread_mutexattr_destroy(pthread_mutexattr_t *attr);
 int pthread_mutexattr_settype(pthread_mutexattr_t *attr, int type);
 int pthread_mutexattr_gettype(const pthread_mutexattr_t *attr, int *type);
+int pthread_mutexattr_setprotocol(pthread_mutexattr_t *attr, int protocol);
+int pthread_mutexattr_getprotocol(const pthread_mutexattr_t *attr, int *protocol);
+int pthread_mutexattr_setprioceiling(pthread_mutexattr_t *attr, int prioceiling);
+int pthread_mutexattr_getprioceiling(const pthread_mutexattr_t *attr, int *prioceiling);
 
 /* ====================== */
 /* Condition Variables API */
@@ -199,7 +222,6 @@ int pthread_spin_destroy(pthread_spinlock_t *lock);
 int pthread_spin_lock(pthread_spinlock_t *lock);
 int pthread_spin_trylock(pthread_spinlock_t *lock);
 int pthread_spin_unlock(pthread_spinlock_t *lock);
-// int pthread_spin_attach(pthread_spinlock_t *lock);
 int pthread_spin_attach(pthread_spinlock_t *lock, const char *shm_path);
 
 /* ====================== */
@@ -261,11 +283,6 @@ typedef struct thread_pool thread_pool_t;
 thread_pool_t *thread_pool_create(int thread_count);
 int thread_pool_add(thread_pool_t *pool, void (*function)(void *), void *argument);
 int thread_pool_destroy(thread_pool_t *pool, int graceful);
-
-// /* Atomic Operations (Non-standard) */
-// int atomic_increment(volatile int *value);
-// int atomic_decrement(volatile int *value);
-// int atomic_cas(volatile int *ptr, int oldval, int newval);
 
 #ifdef __cplusplus
 }

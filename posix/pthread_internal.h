@@ -1,7 +1,7 @@
 #ifndef _PTHREAD_INTERNAL_H
 #define _PTHREAD_INTERNAL_H
 
-#include "pthread.h"
+#include <pthread.h>
 #include <mint/mintbind.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -53,6 +53,18 @@
 #define THREAD_SYNC_RWLOCK_UNLOCK    29
 #define THREAD_SYNC_RWLOCK_TRYRDLOCK 30
 #define THREAD_SYNC_RWLOCK_TRYWRLOCK 31
+
+#define THREAD_SYNC_MUTEX_ATTR_INIT		32
+#define THREAD_SYNC_MUTEX_ATTR_DESTROY	33
+#define THREAD_SYNC_MUTEX_DESTROY		34
+#define THREAD_SYNC_MUTEX_TRYLOCK		35
+
+#define THREAD_SYNC_MUTEXATTR_SETTYPE      36
+#define THREAD_SYNC_MUTEXATTR_SETPROTOCOL  37
+#define THREAD_SYNC_MUTEXATTR_SETPRIOCEILING 38
+#define THREAD_SYNC_MUTEXATTR_GETTYPE      39
+#define THREAD_SYNC_MUTEXATTR_GETPROTOCOL  40
+#define THREAD_SYNC_MUTEXATTR_GETPRIOCEILING 41
 
 /* Thread operation modes for sys_p_thread_ctrl */
 #define THREAD_CTRL_EXIT     0
@@ -123,28 +135,6 @@ typedef enum {
 /* Magic value for condition variable validation */
 #define CONDVAR_MAGIC 0xC0DEC0DE
 
-/* Internal mutex structure */
-typedef struct {
-    volatile short locked;
-    void *owner;
-    void *wait_queue;
-} pthread_mutex_internal_t;
-
-/* Internal condition variable structure */
-typedef struct {
-    void *wait_queue;
-    void *associated_mutex;
-    unsigned long magic;
-    int destroyed;
-    long timeout_ms;
-} pthread_cond_internal_t;
-
-/* Internal thread structure */
-struct thread {
-    long id;
-    void *stack;
-};
-
 /* System call wrappers */
 
 static inline long sys_p_thread_tsd(long op, long arg1, long arg2){
@@ -156,7 +146,7 @@ static inline long sys_p_thread_atomic(long op, long arg1, long arg2, long arg3)
 }
 
 static inline long sys_p_thread_sync(long op, long arg1, long arg2) {
-    return trap_1_wlll(P_THREAD_SYNC, op, arg1, arg2);
+    return trap_1_wlll(P_THREAD_SYNC, (long)op, (long)arg1, (long)arg2);
 }
 
 static inline long proc_thread_signal(int op, long arg1, long arg2) {
@@ -181,7 +171,7 @@ static inline long proc_thread_status(long arg1) {
 
 /* Internal helper functions */
 static inline int validate_cond(pthread_cond_t *cond) {
-    pthread_cond_internal_t *internal = (pthread_cond_internal_t *)cond;
+    pthread_cond_t *internal = (pthread_cond_t *)cond;
     return (internal && internal->magic == CONDVAR_MAGIC && !internal->destroyed);
 }
 
@@ -192,34 +182,5 @@ static inline int validate_mutex(pthread_mutex_t *mutex) {
 static inline int validate_rwlock(pthread_rwlock_t *rwlock) {
     return (rwlock != NULL && *rwlock != 0);
 }
-
-/* Thread pool structures */
-typedef struct thread_pool_task {
-    void (*function)(void *);
-    void *argument;
-    struct thread_pool_task *next;
-} thread_pool_task_t;
-
-typedef struct thread_pool {
-    pthread_mutex_t lock;
-    pthread_cond_t notify;
-    pthread_t *threads;
-    thread_pool_task_t *queue;
-    int thread_count;
-    int queue_size;
-    int shutdown;
-    int started;
-} thread_pool_t;
-
-/* Internal cleanup functions */
-void _pthread_cleanup_push_impl(void (*routine)(void*), void *arg);
-void _pthread_cleanup_pop_impl(int execute);
-
-/* Internal thread pool functions */
-int _thread_pool_destroy(thread_pool_t *pool, int graceful);
-int _thread_pool_add(thread_pool_t *pool, void (*function)(void *), void *argument);
-
-/* Thread pool worker function */
-void *thread_pool_worker(void *arg);
 
 #endif /* _PTHREAD_INTERNAL_H */
