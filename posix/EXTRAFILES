@@ -15,7 +15,8 @@ SRCFILES += \
 	TESTS \
 	TESTS2C.sed \
 	confstr.h \
-	pthread_internal.h \
+	pthread_priv.h \
+	semaphore_priv.h \
 	ptestcases.h \
 	test-fnmatch.c \
 	test-getopt.args \

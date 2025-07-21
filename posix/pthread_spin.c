@@ -1,5 +1,5 @@
 #include <pthread.h>
-#include "pthread_internal.h"
+#include "pthread_priv.h"
 #include <mint/osbind.h>
 #include <mint/dcntl.h>
 #include <string.h>

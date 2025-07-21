@@ -50,5 +50,5 @@
 #endif
 
 /* Maximum value the semaphore can have.  */
-#define SEM_VALUE_MAX   (__INT_MAX__)
+#define SEM_VALUE_MAX 32767
 

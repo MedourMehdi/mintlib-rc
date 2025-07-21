@@ -1,7 +1,7 @@
 #include <errno.h>
 #include <mint/mintbind.h>
 #include <pthread.h>
-#include "pthread_internal.h"
+#include "pthread_priv.h"
 
 int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
                    void *(*start_routine)(void*), void *arg)

@@ -1,5 +1,5 @@
 #include <pthread.h>
-#include "pthread_internal.h"
+#include "pthread_priv.h"
 #include <errno.h>
 
 int pthread_rwlock_init(pthread_rwlock_t *rwlock, const pthread_rwlockattr_t *attr) 

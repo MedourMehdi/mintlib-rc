@@ -11,7 +11,7 @@
 
 #include "lib.h"
 #include <pthread.h>
-#include "pthread_internal.h"
+#include "pthread_priv.h"
 
 /* _clock() has a rez of CLOCKS_PER_SEC ticks/sec */
 clock_t _clock (void);

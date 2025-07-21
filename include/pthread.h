@@ -46,19 +46,19 @@ typedef struct {
 typedef struct {
     void *owner;
     void *wait_queue;    
-    int locked;
-    int protocol;              /* Priority protocol */
-    int type;                  /* Mutex type */
-    int prioceiling;           /* Priority ceiling */
-    int saved_priority;        /* Saved priority for ceiling protocol */
-    int lock_count;            /* Lock count for recursive mutexes */
+    short locked;
+    short protocol;              /* Priority protocol */
+    short type;                  /* Mutex type */
+    short prioceiling;           /* Priority ceiling */
+    short saved_priority;        /* Saved priority for ceiling protocol */
+    short lock_count;            /* Lock count for recursive mutexes */
 } pthread_mutex_t;
 
 typedef struct {
-    int type;                 /* Mutex type: NORMAL, RECURSIVE, ERRORCHECK */
-    int pshared;              /* Process-shared flag */
-    int protocol;             /* Priority protocol */
-    int prioceiling;          /* Priority ceiling value */
+    short type;                 /* Mutex type: NORMAL, RECURSIVE, ERRORCHECK */
+    short pshared;              /* Process-shared flag */
+    short protocol;             /* Priority protocol */
+    short prioceiling;          /* Priority ceiling value */
 } pthread_mutexattr_t;
 
 /* Condition variable */

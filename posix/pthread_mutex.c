@@ -1,6 +1,6 @@
 #include <errno.h>
 #include <pthread.h>
-#include "pthread_internal.h"
+#include "pthread_priv.h"
 #include <stdio.h>
 
 int pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr)

@@ -1,5 +1,5 @@
 #include <pthread.h>
-#include "pthread_internal.h"
+#include "pthread_priv.h"
 #include <errno.h>
 
 int pthread_barrier_init(pthread_barrier_t *barrier, 

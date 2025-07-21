@@ -1,5 +1,5 @@
 #include <pthread.h>
-#include "pthread_internal.h"
+#include "pthread_priv.h"
 #include <errno.h>
 
 int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset)

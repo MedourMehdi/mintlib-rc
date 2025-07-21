@@ -1,5 +1,5 @@
 #include <mint/mintbind.h>
-#include "pthread_internal.h"
+#include "pthread_priv.h"
 
 void pthread_cleanup_push(void (*routine)(void*), void *arg) {
     trap_1_wlll(P_THREAD_SYNC, THREAD_SYNC_CLEANUP_PUSH, (long)routine, (long)arg);

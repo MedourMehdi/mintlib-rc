@@ -1,7 +1,7 @@
 #include <mint/mintbind.h>
 #include <errno.h>
 #include <string.h>
-#include "pthread_internal.h"
+#include "pthread_priv.h"
 
 int pthread_setname_np(pthread_t thread, const char *name) {
     long result;

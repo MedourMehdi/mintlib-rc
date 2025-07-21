@@ -1,6 +1,6 @@
 #include <errno.h>
 #include <pthread.h>
-#include "pthread_internal.h"
+#include "pthread_priv.h"
 
 int pthread_attr_init(pthread_attr_t *attr)
 {

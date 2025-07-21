@@ -1,6 +1,6 @@
 
 #include <pthread.h>
-#include "pthread_internal.h"
+#include "pthread_priv.h"
 #include <errno.h>
 
 int pthread_setschedparam(pthread_t thread, int policy, 

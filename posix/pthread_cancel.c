@@ -1,5 +1,5 @@
 #include <pthread.h>
-#include "pthread_internal.h"
+#include "pthread_priv.h"
 #include <errno.h>
 
 int pthread_cancel(pthread_t thread)
