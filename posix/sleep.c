@@ -71,7 +71,7 @@ __sleep (unsigned int n)
 		if (pthread_is_multithreaded_np() && pthread_self() > 0) {
 			/* Use pthread sleep for multithreaded environment */
 			return msleep(n * 1000) == 0 ? 0 : n;
-		}		
+		}
 		if (n == 0)
 			return 0;
 		/* Clear any existing alarm, but save its expire time.

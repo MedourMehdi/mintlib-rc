@@ -318,7 +318,6 @@ int sem_post(sem_t *sem) {
             return -1;
         }
     }
-
     return 0;
 }
 
