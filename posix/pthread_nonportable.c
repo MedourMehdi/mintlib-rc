@@ -45,80 +45,17 @@ int msleep(long ms) {
     return usleep(ms * 1000);
 }
 
-int pthread_tryjoin_np(pthread_t thread, void **retval)
-{
-    while (1) {
-        long status = proc_thread_status(thread);
-        if (status == ESRCH) {
-            return (status == ESRCH) ? ESRCH : EINVAL;
-        }
-        if (status & THREAD_STATE_EXITED) {
-            // Thread exited, now do the actual join to get return value
-            long result = sys_p_thread_sync(THREAD_SYNC_TRYJOIN, thread, (long)retval);
-            if (result == 0 || result != EAGAIN) {
-                return (result == 0) ? 0 : EINVAL;
-            }
-        }
-        // pthread_yield();
-        msleep(10); // Sleep for 10ms before checking again
-    }
-}
-
 /*
  * pthread_tryjoin_np - attempt to join with a thread without blocking
  * Non-portable extension for MiNT pthread implementation
  */
-
-// int pthread_tryjoin_np(pthread_t thread, void **retval)
-// {
-//     long result;
-//     long status;
-
-//     /* Validate thread parameter */
-//     if (thread <= 0) {
-//         return EINVAL;
-//     }
-
-//     /* Check if trying to join with self */
-//     if (thread == pthread_self()) {
-//         return EDEADLK;
-//     }
-
-//     /* First check the thread status to see if it's joinable */
-//     status = proc_thread_status(thread);
-//     if (status < 0) {
-//         /* Thread doesn't exist or invalid */
-//         return ESRCH;
-//     }
-
-//     /* Check if thread has already exited */
-//     if (!(status & THREAD_STATE_EXITED)) {
-//         /* Thread is still running, return immediately without blocking */
-//         return EBUSY;
-//     }
-
-//     /* Thread has exited, attempt to join */
-//     result = sys_p_thread_sync(THREAD_SYNC_TRYJOIN, thread, (long)retval);
-    
-//     if (result < 0) {
-//         switch (-result) {
-//             case ESRCH:
-//                 /* Thread not found */
-//                 return ESRCH;
-//             case EINVAL:
-//                 /* Thread is not joinable (detached) */
-//                 return EINVAL;
-//             case EDEADLK:
-//                 /* Deadlock detected */
-//                 return EDEADLK;
-//             case EBUSY:
-//                 /* Thread not ready for joining yet */
-//                 return EBUSY;
-//             default:
-//                 return -result;
-//         }
-//     }
-
-//     /* Success */
-//     return 0;
-// }
+int pthread_tryjoin_np(pthread_t thread, void **retval)
+{
+    long result = 1;
+    while (result != 0) {
+        result = sys_p_thread_sync(THREAD_SYNC_TRYJOIN, thread, (long)retval);
+        pthread_yield();
+        // msleep(10); // Sleep for 10ms before checking again
+    }
+    return 0; // Successfully joined
+}
