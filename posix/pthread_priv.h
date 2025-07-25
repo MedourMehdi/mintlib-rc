@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 /* Define the PE_THREAD mode for Pexec */
 #define PE_THREAD       107
 

@@ -3,6 +3,8 @@
 #include <pthread.h>
 #include "pthread_priv.h"
 
+short __mint_is_multithreaded = 0;
+
 int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
                    void *(*start_routine)(void*), void *arg)
 {
@@ -20,6 +22,8 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
             default: return EAGAIN;
         }
     }
+
+    __mint_is_multithreaded = 1; // Set the global flag to indicate multi-threading
     
     *thread = (pthread_t)tid;
     return 0;

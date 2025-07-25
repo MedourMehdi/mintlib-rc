@@ -284,6 +284,8 @@ thread_pool_t *thread_pool_create(int thread_count);
 int thread_pool_add(thread_pool_t *pool, void (*function)(void *), void *argument);
 int thread_pool_destroy(thread_pool_t *pool, int graceful);
 
+extern short __mint_is_multithreaded;
+
 #ifdef __cplusplus
 }
 #endif

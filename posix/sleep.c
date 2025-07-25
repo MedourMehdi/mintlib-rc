@@ -68,7 +68,7 @@ __sleep (unsigned int n)
 
 	if (__mint) {
 		/* Check if we're in a multithreaded environment and not the main thread */
-		if (pthread_is_multithreaded_np() && pthread_self() > 0) {
+		if (__mint_is_multithreaded && pthread_self() > 0) {
 			/* Use pthread sleep for multithreaded environment */
 			return msleep(n * 1000) == 0 ? 0 : n;
 		}

@@ -109,7 +109,7 @@ int sem_init(sem_t *sem, int pshared, unsigned int value) {
         return -1;
     }
 
-    if (pthread_is_multithreaded_np()) {
+    if (__mint_is_multithreaded) {
         /* Multithreaded mode: use pthread semaphore implementation */
         sem->count = value;
         sem->wait_queue = NULL;
@@ -156,7 +156,7 @@ int sem_wait(sem_t *sem) {
         return -1;
     }
 
-    if (pthread_is_multithreaded_np()) {
+    if (__mint_is_multithreaded) {
 
         /* Multithreaded mode: use pthread semaphore implementation */
         return (sys_p_thread_sync(THREAD_SYNC_SEM_WAIT, (long)sem, 0) < 0) ? -1 : 0;
@@ -214,7 +214,7 @@ int sem_trywait(sem_t *sem) {
         return -1;
     }
 
-    if (pthread_is_multithreaded_np()) {
+    if (__mint_is_multithreaded) {
         short old_count = sem->count;
 
         /* Multithreaded mode: use atomic syscall for check-and-decrement */
@@ -284,7 +284,7 @@ int sem_post(sem_t *sem) {
         return -1;
     }
 
-    if (pthread_is_multithreaded_np()) {
+    if (__mint_is_multithreaded) {
         if (sys_p_thread_sync(THREAD_SYNC_SEM_POST, (long)sem, 0) < 0) {
             return -1;
         }
@@ -337,7 +337,7 @@ int sem_destroy(sem_t *sem) {
         return -1;
     }
 
-    if (pthread_is_multithreaded_np()) {
+    if (__mint_is_multithreaded) {
         /* Multithreaded mode: use pthread semaphore implementation */
         if (sem->wait_queue) {
             errno = EBUSY;
@@ -481,7 +481,7 @@ int sem_timedwait(sem_t *sem, const struct timespec *abs_timeout) {
         return -1;
     }
     
-    if (pthread_is_multithreaded_np()) {
+    if (__mint_is_multithreaded) {
         /* Multithreaded mode: polling approach with atomic operations */
         const int POLL_INTERVAL_MS = 2; /* 1ms polling interval */
         short old_count;
@@ -597,7 +597,7 @@ int sem_clockwait(sem_t *sem, clockid_t clock_id, const struct timespec *abs_tim
         return -1;
     }
     
-    if (pthread_is_multithreaded_np()) {
+    if (__mint_is_multithreaded) {
         /* Multithreaded mode: polling approach with atomic operations */
         const int POLL_INTERVAL_MS = 2; /* 1ms polling interval */
         short old_count;

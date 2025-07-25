@@ -34,7 +34,7 @@ sem_t *sem_open(const char *name, int oflag, ...) {
         return SEM_FAILED;
     }
 
-    if (pthread_is_multithreaded_np()) {
+    if (__mint_is_multithreaded) {
         errno = ENOSYS;
         return SEM_FAILED;
     }
@@ -127,7 +127,7 @@ int sem_unlink(const char* name) {
     char sem_path[16] = "/SHM";
     sem_t* sem_ptr;
 
-    if (pthread_is_multithreaded_np()) {
+    if (__mint_is_multithreaded) {
         errno = ENOSYS;
         return -1;
     }

@@ -12,7 +12,7 @@ sched_yield (void)
 	int y;
 
 	/* Check if we're in a multithreaded environment and not the main thread */
-	if (pthread_is_multithreaded_np() && pthread_self() > 0) {
+	if ( __mint_is_multithreaded && pthread_self() > 0) {
 		/* Use pthread yield for multithreaded environment */
 		return pthread_yield();
 	}

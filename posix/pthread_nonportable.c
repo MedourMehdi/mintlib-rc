@@ -38,7 +38,7 @@ int pthread_is_multithreaded_np(void) {
 }
 
 int msleep(long ms) {
-    if (pthread_is_multithreaded_np() && ((long)sys_p_thread_ctrl(THREAD_CTRL_GETID, 0, 0)) > 0) {
+    if ( __mint_is_multithreaded && ((long)sys_p_thread_ctrl(THREAD_CTRL_GETID, 0, 0)) > 0) {
         long result = sys_p_thread_sync(THREAD_SYNC_SLEEP, ms, 0);
         return (result < 0) ? -result : 0;
     }
