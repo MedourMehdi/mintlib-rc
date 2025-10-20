@@ -7,6 +7,7 @@
 
 #include "private.h"
 #include "tzfile.h"
+#include <errno.h>
 
 #include <fcntl.h>
 #if HAVE_SETLOCALE
@@ -17,6 +18,9 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stddef.h>
+
+/* We should include errno */
+// #include <errno.h>
 
 #define	ZIC_VERSION_PRE_2013 '2'
 #define	ZIC_VERSION	'3'

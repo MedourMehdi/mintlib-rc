@@ -166,6 +166,8 @@
 /* Magic value for condition variable validation */
 #define CONDVAR_MAGIC 0xC0DEC0DE
 
+void __errno_thread_cleanup(pthread_t tid);
+
 /* System call wrappers */
 /* Direct syscall wrapper - keep this as the base */
 static inline long sys_p_pthread(long func, long arg1, long arg2, long arg3) {

@@ -31,13 +31,18 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 
 void pthread_exit(void *retval)
 {
+    pthread_t self = pthread_self();
+    __errno_thread_cleanup(self);
     sys_p_thread_ctrl(THREAD_CTRL_EXIT, (long)retval, 0);
     while(1); // Never returns
 }
 
 int pthread_join(pthread_t thread, void **retval)
 {
-    long result = sys_p_thread_sync(THREAD_SYNC_JOIN, thread, (long)retval);
+    long result = 0;
+    /* Clean up errno entry for joined thread */
+    __errno_thread_cleanup(thread);     
+    result = sys_p_thread_sync(THREAD_SYNC_JOIN, thread, (long)retval);
     if (result < 0) {
         switch (result) {
             case -ESRCH: return ESRCH;

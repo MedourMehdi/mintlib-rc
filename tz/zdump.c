@@ -15,6 +15,7 @@
 */
 
 #include "private.h"
+#include <errno.h>
 
 #include "stdio.h"
 #include "string.h"
@@ -28,6 +29,9 @@
 #ifndef isascii
 #define isascii(x) 1
 #endif
+
+/* We should include errno */
+// #include <errno.h>
 
 #ifdef __MINT__
 long _stksize = 64 * 1024l;

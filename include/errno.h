@@ -34,12 +34,17 @@ __BEGIN_DECLS
 # undef errno
 #endif
 
+/* Thread-safe errno implementation */
+extern int *__errno_location(void);
+#define errno (*__errno_location())
+
+
 /* Within the library you should never assign errno directly.  Use
    this macro instead.  Future thread-safe implementations of the
    MiNTLib may require this.  */
 #define __set_errno(e) (errno = e)
 
-extern int errno;
+// extern int errno;
 
 # if defined(__USE_GNU)
 
