@@ -36,6 +36,7 @@
 #define THREAD_ATOMIC_OR            27   /* Atomic bitwise OR */
 #define THREAD_ATOMIC_AND           28   /* Atomic bitwise AND */
 #define THREAD_ATOMIC_XOR           29   /* Atomic bitwise XOR */
+#define THREAD_ATOMIC_TAS           30   /* Test-and-set */
 
 /* ============================================================================
  * P_THREAD_CTRL OPERATIONS (sys_p_thread_ctrl)
@@ -53,6 +54,7 @@
 #define THREAD_CTRL_IS_MULTITHREADED   14   /* Check if process is multithreaded */
 #define THREAD_CTRL_SWITCH_TO_MAIN     15   /* Switch to main thread context */
 #define THREAD_CTRL_SWITCH_TO_THREAD   16   /* Switch to specific thread */
+#define THREAD_CTRL_GET_ERRNO_PTR      17   /* Get current thread's errno */
 
 /* ============================================================================
  * P_THREAD_SYNC OPERATIONS (sys_p_thread_sync)

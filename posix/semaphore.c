@@ -502,7 +502,7 @@ int sem_timedwait(sem_t *sem, const struct timespec *abs_timeout) {
             }
             
             /* Semaphore not available, yield and sleep briefly */
-            sys_p_thread_sync(THREAD_SYNC_YIELD, 0, 0);
+            // sys_p_thread_sync(THREAD_SYNC_YIELD, 0, 0);
             msleep(POLL_INTERVAL_MS);
         }
         
@@ -618,7 +618,7 @@ int sem_clockwait(sem_t *sem, clockid_t clock_id, const struct timespec *abs_tim
             }
             
             /* Semaphore not available, yield and sleep briefly */
-            sys_p_thread_sync(THREAD_SYNC_YIELD, 0, 0);
+            // sys_p_thread_sync(THREAD_SYNC_YIELD, 0, 0);
             msleep(POLL_INTERVAL_MS);
         }
         

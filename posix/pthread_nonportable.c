@@ -54,7 +54,7 @@ int pthread_tryjoin_np(pthread_t thread, void **retval)
     long result = 1;
     while (result != 0) {
         result = sys_p_thread_sync(THREAD_SYNC_TRYJOIN, thread, (long)retval);
-        pthread_yield();
+        // pthread_yield();
         // msleep(10); // Sleep for 10ms before checking again
     }
     return 0; // Successfully joined
