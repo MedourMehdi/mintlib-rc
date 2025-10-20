@@ -17,6 +17,7 @@
 #include "lib.h"
 #include "malloc_int.h"
 
+#include "posix/pthread_priv.h"
 
 /* CAUTION: use _mallocChunkSize() to tailor to your environment,
  *          do not make the default too large, as the compiler
@@ -26,9 +27,29 @@
 static size_t MINHUNK =	8192L;	/* default */
 static size_t MAXHUNK = 32 * 1024L; /* max. default */
 
+static volatile unsigned char malloc_lock = 0;
+
+static inline void _lock_acquire(void) {
+    if (__mint_is_multithreaded) {
+        while (!sys_p_thread_atomic(THREAD_ATOMIC_TAS, (long)&malloc_lock, 0, 0)) {
+            pthread_yield();
+        }
+    }
+}
+
+static inline void _lock_release(void) {
+    if (__mint_is_multithreaded) {
+        malloc_lock = 0;
+    }
+}
+
 /* tune chunk size */
 __typeof__(_mallocChunkSize) __mallocChunkSize;
-void __mallocChunkSize(size_t siz) { MAXHUNK = MINHUNK = siz; }
+void __mallocChunkSize(size_t siz) {
+    _lock_acquire();
+    MAXHUNK = MINHUNK = siz;
+    _lock_release();
+}
 weak_alias(__mallocChunkSize, _mallocChunkSize)
 
 /* flag to control zero'ing of malloc'ed chunks */
@@ -36,7 +57,11 @@ static int ZeroMallocs = 0;
 
 /* Set zero block after malloc flag */
 __typeof__(_malloczero) __malloczero;
-void __malloczero(int yes) { ZeroMallocs = yes; }
+void __malloczero(int yes) {
+    _lock_acquire();
+    ZeroMallocs = yes;
+    _lock_release();
+}
 weak_alias(__malloczero, _malloczero)
 
 /* linked list of free blocks struct defined in lib.h */
@@ -48,7 +73,10 @@ __malloc(size_t n)
 {
 	struct mem_chunk *p, *q;
 	unsigned long sz;
+	int zero_flag;
 
+	_lock_acquire();
+	zero_flag = ZeroMallocs;
 	/* add a mem_chunk to required size and round up */
 	n = (n + sizeof(struct mem_chunk) + (MALLOC_ALIGNMENT - 1)) & ~(MALLOC_ALIGNMENT - 1);
 
@@ -88,8 +116,10 @@ __malloc(size_t n)
 		}
 
 		q = (struct mem_chunk * ) __sbrk(sz);
-		if (((long) q) == -1) /* can't alloc any more? */
-			return NULL;
+		if (((long) q) == -1) {
+			_lock_release();
+ 			return NULL;
+		}
 
 		/* Note: q may be below the highest allocated chunk */
 		p = &_mchunk_free_list;
@@ -135,7 +165,9 @@ __malloc(size_t n)
 	q->next = NULL;	
 	q++; /* hand back ptr to after chunk desc */
 
-	if (ZeroMallocs)
+	_lock_release();
+
+	if (zero_flag)
 		memset(q, 0, (size_t)(n - sizeof(struct mem_chunk)));
 
 	return (void *) q;
@@ -158,6 +190,8 @@ __free(void *param)
 	if (r->valid != VAL_ALLOC)
 		return;
 
+	_lock_acquire();
+
 	r->valid = VAL_FREE;
 
 	/* stick it into free list, preserving ascending address order */
@@ -177,7 +211,10 @@ __free(void *param)
 	{
 		assert(s == q);
 		if (s != q)
-			return;
+		{
+			_lock_release();
+ 			return;
+		}
 		r->size += q->size;
 		q = q->next;
 		s->size = 0;
@@ -192,7 +229,10 @@ __free(void *param)
 		/* remember: r may be below &_mchunk_free_list in memory */
 		assert(s == r);
 		if (s != r)
-			return;
+		{
+			_lock_release();
+ 			return;
+		}
 		if (p->valid == VAL_BORDER)
 		{
 			if (ALLOC_SIZE(p) == r->size)
@@ -203,6 +243,7 @@ __free(void *param)
 			else
 				p->next = r;
 
+			_lock_release();
 			return;
 		}
 
@@ -218,7 +259,10 @@ __free(void *param)
 		{
 			assert(s == (struct mem_chunk *) _heapbase);
 			if (s != (struct mem_chunk *) _heapbase)
-				return;
+			{
+				_lock_release();
+ 				return;
+			}
 			_heapbase = (void *) p;
 			_stksize += p->size;
 			o->next = p->next; /* o is always != NULL here */
@@ -236,7 +280,10 @@ __free(void *param)
 			{
 				assert (s == o);
 				if (s != o)
-					return;
+				{
+					_lock_release();
+ 					return;
+				}
 				q->next = p->next;
 				Mfree (o);
 			}
@@ -251,7 +298,10 @@ __free(void *param)
 		{
 			assert(s == (struct mem_chunk *) _heapbase);
 			if (s != (struct mem_chunk *) _heapbase)
-				return;
+			{
+				_lock_release();
+ 				return;
+			}
 			_heapbase = (void *) r;
 			_stksize += r->size;
 
@@ -260,5 +310,6 @@ __free(void *param)
 		else
 			p->next = r;
 	}
+	_lock_release();
 }
 weak_alias(__free, free)
