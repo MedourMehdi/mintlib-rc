@@ -31,18 +31,25 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 
 void pthread_exit(void *retval)
 {
-    pthread_t self = pthread_self();
-    __errno_thread_cleanup(self);
+    int *errno_ptr;
+    
+    /* Clean up errno storage before exiting */
+    if (__mint_is_multithreaded) {
+        errno_ptr = (int *)sys_p_thread_ctrl(THREAD_CTRL_GET_ERRNO_PTR, 0, 0);
+        if (errno_ptr != NULL && errno_ptr != (int *)-1) {
+            /* Always free and clear - kernel/malloc will handle if it's valid */
+            free(errno_ptr);
+            sys_p_thread_ctrl(THREAD_CTRL_SET_ERRNO_PTR, 0, 0);
+        }
+    }
+
     sys_p_thread_ctrl(THREAD_CTRL_EXIT, (long)retval, 0);
     while(1); // Never returns
 }
 
 int pthread_join(pthread_t thread, void **retval)
 {
-    long result = 0;
-    /* Clean up errno entry for joined thread */
-    __errno_thread_cleanup(thread);     
-    result = sys_p_thread_sync(THREAD_SYNC_JOIN, thread, (long)retval);
+    long result = sys_p_thread_sync(THREAD_SYNC_JOIN, thread, (long)retval);
     if (result < 0) {
         switch (result) {
             case -ESRCH: return ESRCH;

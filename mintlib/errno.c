@@ -18,90 +18,54 @@
 #include <string.h>
 #include "posix/pthread_priv.h"
 
-
-/* Maximum number of threads we support for errno storage */
-#define MAX_ERRNO_THREADS 256
-
-/* Internal errno support */
-int *__errno_location(void);
-
 /* Single-threaded errno for when threading is not active */
 static int __errno_storage = 0;
-
-/* Thread-specific errno array */
-typedef struct {
-    pthread_t tid;
-    int errno_val;
-    int in_use;
-} errno_entry_t;
-
-static errno_entry_t errno_table[MAX_ERRNO_THREADS];
-static int errno_table_initialized = 0;
-
-/* Initialize the errno table (called once when first thread is created) */
-static void init_errno_table(void)
-{
-    if (!errno_table_initialized) {
-        memset(errno_table, 0, sizeof(errno_table));
-        errno_table_initialized = 1;
-    }
-}
 
 /* Get the address of the current thread's errno */
 int *__errno_location(void)
 {
-    pthread_t self;
-    int i;
+    int *errno_ptr;
+    int *new_errno;
+    long result;
     
     /* If not multithreaded, use static storage */
     if (!__mint_is_multithreaded) {
         return &__errno_storage;
     }
     
-    /* Initialize table if needed */
-    if (!errno_table_initialized) {
-        init_errno_table();
+    /* Ask kernel for current thread's errno pointer */
+    errno_ptr = (int *)sys_p_thread_ctrl(THREAD_CTRL_GET_ERRNO_PTR, 0, 0);
+    
+    /* If already set, return it */
+    if (errno_ptr != NULL && errno_ptr != (int *)-1) {
+        return errno_ptr;
     }
     
-    /* Get current thread ID */
-    self = pthread_self();
-    
-    /* Find existing entry for this thread */
-    for (i = 0; i < MAX_ERRNO_THREADS; i++) {
-        if (errno_table[i].in_use && errno_table[i].tid == self) {
-            return &errno_table[i].errno_val;
-        }
+    /* First access for this thread - allocate new errno storage */
+    new_errno = (int *)malloc(sizeof(int));
+    if (new_errno == NULL) {
+        /* Allocation failed - fallback to static (not thread-safe!) */
+        return &__errno_storage;
     }
     
-    /* Allocate new entry for this thread */
-    for (i = 0; i < MAX_ERRNO_THREADS; i++) {
-        if (!errno_table[i].in_use) {
-            errno_table[i].tid = self;
-            errno_table[i].errno_val = 0;
-            errno_table[i].in_use = 1;
-            return &errno_table[i].errno_val;
-        }
+    /* Initialize to 0 */
+    *new_errno = 0;
+    
+    /* Tell kernel about our errno pointer */
+    result = sys_p_thread_ctrl(THREAD_CTRL_SET_ERRNO_PTR, (long)new_errno, 0);
+    if (result < 0) {
+        /* Setting failed - free and fallback */
+        free(new_errno);
+        return &__errno_storage;
     }
     
-    /* Table full - fallback to static storage (not ideal) */
-    return &__errno_storage;
+    return new_errno;
 }
 
-/* Clean up errno entry when thread exits */
-void __errno_thread_cleanup(pthread_t tid)
+/* Helper function for assembly code to set errno */
+/* Assembly code cannot use the errno macro, so this wrapper allows */
+/* assembly to set errno in a thread-safe way */
+void __set_errno_asm(int err)
 {
-    int i;
-    
-    if (!errno_table_initialized) {
-        return;
-    }
-    
-    for (i = 0; i < MAX_ERRNO_THREADS; i++) {
-        if (errno_table[i].in_use && errno_table[i].tid == tid) {
-            errno_table[i].in_use = 0;
-            errno_table[i].tid = 0;
-            errno_table[i].errno_val = 0;
-            break;
-        }
-    }
+    errno = err;
 }

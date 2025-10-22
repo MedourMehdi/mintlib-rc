@@ -38,6 +38,7 @@ __BEGIN_DECLS
 extern int *__errno_location(void);
 #define errno (*__errno_location())
 
+extern void __set_errno_asm(int err);
 
 /* Within the library you should never assign errno directly.  Use
    this macro instead.  Future thread-safe implementations of the

@@ -9,6 +9,7 @@
 
 	.globl	C_SYMBOL_NAME(vfork)
 	.globl	C_SYMBOL_NAME(__vfork)
+	.globl C_SYMBOL_NAME(__set_errno_asm)
 	.globl	C_SYMBOL_NAME(__mint)		| MiNT version kept here
 	.lcomm	L_vfsav, 128
 	.text
@@ -48,12 +49,21 @@ L_TOS:
 	jmi	L_err		| no -- error
 	jmp	(%a1)		| return to caller
 L_err:
+	movel %a1, -(%sp) | save return address
 	negl	%d0
 #ifdef __MSHORT__
-	movew	%d0, C_SYMBOL_NAME(errno)	| save error code in errno
+|	movew	%d0, C_SYMBOL_NAME(errno)	| save error code in errno
+	extl %d0 | sign-extend word to long for function call
+#endif
+#ifdef __FASTCALL__
+	jbsr C_SYMBOL_NAME(__set_errno_asm) | __set_errno_asm(err) - d0 is first param
 # else
-	movel	%d0, C_SYMBOL_NAME(errno)	| save error code in errno
-# endif
+|	movel	%d0, C_SYMBOL_NAME(errno)	| save error code in errno
+	movel %d0, -(%sp) | push error code as parameter
+	jbsr C_SYMBOL_NAME(__set_errno_asm) | __set_errno_asm(err)
+	addql #4, %sp | clean up stack
+#endif
+	movel (%sp)+, %a1 | restore return address	
 	moveql	#-1, %d0		| return -1
 	jmp	(%a1)		| return
 
