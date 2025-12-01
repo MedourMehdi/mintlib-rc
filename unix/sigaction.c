@@ -7,12 +7,30 @@
 
 #include "lib.h"
 
+#include "posix/pthread_priv.h"
 
 #if NEED_SIGNAL_TRAMPOLINE
 typedef void __CDECL (*__KerSigfunc) (long, long);
 #else
 typedef void __CDECL (*__KerSigfunc) (int);
 #endif
+
+/* Internal function to set extended handler via thread syscalls */
+static int 
+__sigaction_set_extended(int sig, void (*handler)(int, siginfo_t *, void *))
+{
+    long ret;
+    
+    /* Use thread signal system call for extended handler */
+    ret = proc_thread_signal(PTSIG_EXT_HANDLER, (long)sig, (long)handler);
+    
+    if (ret < 0) {
+        __set_errno(-ret);
+        return -1;
+    }
+    
+    return 0;
+}
 
 int
 __sigaction(int sig, const struct sigaction *act, struct sigaction *oact)
@@ -45,11 +63,18 @@ __sigaction(int sig, const struct sigaction *act, struct sigaction *oact)
 			kact.sa_flags = (short) act->sa_flags;
 #if NEED_SIGNAL_TRAMPOLINE
 			_sig_handler[sig] = (sighandler_t)kact.sa_handler;
-			if (_sig_handler[sig] != SIG_DFL && _sig_handler[sig] != SIG_IGN) {
-				kact.sa_handler = __signal_trampoline;
-			}
+            /* Check if this is a thread-specific signal (SIGUSR1/SIGUSR2) */
+            /* For thread signals, kernel handles the trampoline, so pass handler directly */
+            int is_thread_signal = (sig == SIGUSR1 || sig == SIGUSR2);
+            
+            if (!is_thread_signal && 
+                _sig_handler[sig] != SIG_DFL && 
+                _sig_handler[sig] != SIG_IGN) {
+                kact.sa_handler = __signal_trampoline;
+            }
 #endif
 		}
+		/* Call MiNT Psigaction syscall to set kernel sigaction */
 		r = Psigaction(sig, (act ? &kact : 0L), (oact ? &koact : 0L));
 		if (r < 0) {
 			if (r == -ENOSYS) {
@@ -59,6 +84,28 @@ __sigaction(int sig, const struct sigaction *act, struct sigaction *oact)
 			__set_errno (-r);
 			return -1;
 		}
+        /* At this point Psigaction succeeded and kernel sigaction state has
+         * been set. Now install or clear the extended handler (SA_SIGINFO)
+         * via the proc-thread syscall so kernel-side p_sigacts is consistent.
+         */
+        if (act) {
+            if (act->sa_flags & SA_SIGINFO) {
+                void (*ext_handler)(int, siginfo_t *, void *);
+                ext_handler = (void (*)(int, siginfo_t *, void *)) (void *) act->sa_handler;
+                if (__sigaction_set_extended(sig, ext_handler) != 0) {
+                    /* if extended install failed, undo?  We return error */
+                    return -1;
+                }
+            } 
+			// else {
+            //     /* Ensure any previous extended handler is cleared */
+            //     __sigaction_set_extended(sig, NULL);
+            // }
+        } 
+		// else {
+        //     /* act == NULL -> no install: clear any extended handler */
+        //     __sigaction_set_extended(sig, NULL);
+        // }		
 		if (oact) {
 			oact->sa_mask = koact.sa_mask;
 			oact->sa_flags = (int) koact.sa_flags;

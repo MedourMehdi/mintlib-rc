@@ -26,6 +26,7 @@ MISCFILES = MISCFILES \
 	sem.h \
 	shm.h \
 	sigaction.h \
+	siginfo.h \
 	sigcontext.h \
 	signum.h \
 	sigset.h \

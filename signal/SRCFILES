@@ -22,4 +22,7 @@ SRCFILES = \
 	sigrelse.c \
 	sigset.c \
 	sigwait.c \
+	sigwaitinfo.c \
+	sigtimedwait.c \
+	sigqueue.c \
 	sysv_signal.c

@@ -261,6 +261,9 @@ int pthread_sigwait(const sigset_t *set, int *sig);
 int pthread_sigtimedwait(const sigset_t *set, int *sig, long timeout);
 int pthread_kill_all(int sig);
 
+int pthread_sigqueue(pthread_t thread, int sig, const union sigval value);
+int pthread_sigpending(sigset_t *set);
+int pthread_sigpause(unsigned long mask);
 /* ====================== */
 /* Non-Portable Extensions */
 /* ====================== */

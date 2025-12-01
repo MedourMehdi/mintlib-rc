@@ -186,6 +186,7 @@ __EXTERN int sigorset __P ((sigset_t *__set, __const sigset_t *__left,
 			  __const sigset_t *__right));
 # endif /* GNU */
 
+# include <bits/siginfo.h>
 /* Get the system-specific definitions of `struct sigaction'
    and the `SA_*' and `SIG_*'. constants.  */
 # include <bits/sigaction.h>
@@ -205,25 +206,48 @@ __EXTERN int	sigpending  __P((sigset_t *set));
 /* Select any of pending signals from SET or wait for any to arrive.  */
 extern int sigwait __P ((__const sigset_t *__set, int *__sig));
 
-#ifndef __MINT__
-/* Should these three friends be implemented somehow?  */
-
 # ifdef __USE_POSIX199309
+
+/*
+ * ---------------------------------------------------------------------------
+ * Compatibility shim for systems that kept the old struct sigaction layout
+ * (no sa_sigaction field).
+ *
+ * This allows modern code written for POSIX-style sigaction handlers using
+ * SA_SIGINFO and sa_sigaction to compile cleanly against older MiNT headers,
+ * without changing the actual struct or breaking binary compatibility.
+ *
+ * sa_sigaction → alias of sa_handler
+ *   This makes source code referring to sa.sa_sigaction compile even if the
+ *   underlying struct only has sa_handler. The kernel/libc still use the
+ *   legacy ABI, so this is safe as long as user space cooperates.
+ *
+ * SIGACTION_CAST(h):
+ *   Helper macro to safely cast a 3-argument signal handler
+ *   (int, siginfo_t *, void *) into the single-argument handler type
+ *   expected by sa_handler (__sighandler_t). This avoids GCC warnings
+ *   like:
+ *       warning: assignment from incompatible pointer type
+ *   and is required when compiling with -Wall or -Werror.
+ * ---------------------------------------------------------------------------
+ */
+#ifndef sa_sigaction
+#  define sa_sigaction sa_handler
+#  define SIGACTION_CAST(h) ((__sighandler_t)(void (*)(int, siginfo_t *, void *))(h))
+#endif
+
 /* Select any of pending signals from SET and place information in INFO.  */
-extern int sigwaitinfo __P ((__const sigset_t *__set, siginfo_t *__info));
+extern int sigwaitinfo(__const sigset_t *set, siginfo_t *info);
 
 /* Select any of pending signals from SET and place information in INFO.
    Wait the imte specified by TIMEOUT if no signal is pending.  */
-extern int sigtimedwait __P ((__const sigset_t *__set, siginfo_t *__info,
-			      __const struct timespec *__timeout));
+extern int sigtimedwait(__const sigset_t *set, siginfo_t *info, __const struct timespec *timeout);
 
 /* Send signal SIG to the process PID.  Associate data in VAL with the
    signal.  */
-extern int sigqueue __P ((__pid_t __pid, int __sig,
-			  __const union sigval __val));
-#endif
+extern int sigqueue(__pid_t pid, int sig, __const union sigval value);
 
-# endif	/* Use POSIX 199306.  */
+# endif	/* Use POSIX 199309.  */
 
 #endif /* Use POSIX.  */
 
