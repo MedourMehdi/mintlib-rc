@@ -60,7 +60,7 @@ __sigaction(int sig, const struct sigaction *act, struct sigaction *oact)
 		if (act) {
 			kact.sa_handler = (__KerSigfunc) act->sa_handler;
 			kact.sa_mask = act->sa_mask;
-			kact.sa_flags = (short) act->sa_flags;
+			kact.sa_flags = (unsigned short) act->sa_flags;
 #if NEED_SIGNAL_TRAMPOLINE
 			_sig_handler[sig] = (sighandler_t)kact.sa_handler;
             /* Check if this is a thread-specific signal (SIGUSR1/SIGUSR2) */
@@ -97,15 +97,15 @@ __sigaction(int sig, const struct sigaction *act, struct sigaction *oact)
                     return -1;
                 }
             } 
-			// else {
-            //     /* Ensure any previous extended handler is cleared */
-            //     __sigaction_set_extended(sig, NULL);
-            // }
+			else {
+                /* Ensure any previous extended handler is cleared */
+                __sigaction_set_extended(sig, NULL);
+            }
         } 
-		// else {
-        //     /* act == NULL -> no install: clear any extended handler */
-        //     __sigaction_set_extended(sig, NULL);
-        // }		
+		else {
+            /* act == NULL -> no install: clear any extended handler */
+            __sigaction_set_extended(sig, NULL);
+        }		
 		if (oact) {
 			oact->sa_mask = koact.sa_mask;
 			oact->sa_flags = (int) koact.sa_flags;

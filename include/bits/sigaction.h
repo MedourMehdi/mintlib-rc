@@ -46,15 +46,15 @@
 #define SA_RESTART     0x4000		/* restart system on signal return */
 #endif
 
-// struct sigaction {
-// 	__sighandler_t 	sa_handler;	/* Pointer to signal handler.  */
-// 	__sigset_t	sa_mask;	/* Additional signals masked during
-// 					   delivery.  */
-// 	int		sa_flags;	/* Signal specific flags.  */
-// };
 struct sigaction {
-    __sighandler_t    sa_handler;      /* Pointer to signal handler */
-    __sigset_t        sa_mask;         /* Additional signals masked during delivery */
-    unsigned short    sa_flags;        /* Signal specific flags (NOTE: short, not int) */
-    unsigned short    _sa_pad;         /* EXPLICIT PADDING - ensure alignment */
+	__sighandler_t 	sa_handler;	/* Pointer to signal handler.  */
+	__sigset_t	sa_mask;	/* Additional signals masked during
+					   delivery.  */
+	int		sa_flags;	/* Signal specific flags.  */
 };
+// struct sigaction {
+//     __sighandler_t    sa_handler;      /* Pointer to signal handler */
+//     __sigset_t        sa_mask;         /* Additional signals masked during delivery */
+//     unsigned short    sa_flags;        /* Signal specific flags (NOTE: short, not int) */
+//     // unsigned short    _sa_pad;         /* EXPLICIT PADDING - ensure alignment */
+// };

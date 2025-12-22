@@ -7,6 +7,8 @@
 #include <mint/mintbind.h>
 #include <unistd.h>
 
+#include "posix/pthread_priv.h"
+
 #define USEC_PER_TICK (1000000L / ((unsigned long)CLOCKS_PER_SEC))
 #define	USEC_TO_CLOCK_TICKS(us)	((us) / USEC_PER_TICK )
 
@@ -28,8 +30,10 @@ usleep (__useconds_t __useconds)
 
 	if (r == -ENOSYS) {
 		stop = _clock() + USEC_TO_CLOCK_TICKS(__useconds);
-		while (_clock() < stop)
-			Syield();
+		while (_clock() < stop){
+			if (__mint_is_multithreaded) pthread_yield();
+			else Syield();
+		}
 		r = 0;
 	}
 

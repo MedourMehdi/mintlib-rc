@@ -79,7 +79,7 @@ pthread_t pthread_self(void)
     if (__mint_is_multithreaded) {
         return (pthread_t)sys_p_thread_ctrl(THREAD_CTRL_GETID, 0, 0);
     } else {
-        return (pthread_t)Pgetpid();  // Return PID as thread ID
+        return (pthread_t)NULL;
     }
 }
 

@@ -87,7 +87,7 @@ int pthread_kill(pthread_t thread, int sig)
         
         /* CLASSIC PATH: Use Pkill() for process-level signals */
         {
-            long ret = Pkill((short)thread, (short)sig);
+            long ret = Pkill(Pgetpid(), sig);
             result = (ret < 0) ? -ret : 0;
         }
     );
@@ -149,7 +149,7 @@ int pthread_sigtimedwait(const sigset_t *set, int *sig, long timeout)
             int ret;
             ts.tv_sec = timeout / 1000;
             ts.tv_nsec = (timeout % 1000) * 1000000;
-            
+
             ret = sigtimedwait(set, NULL, &ts);
             if (ret > 0) {
                 *sig = ret;
