@@ -26,10 +26,11 @@ typedef long pthread_t;
 
 /* Thread attribute type */
 typedef struct {
-    int detachstate;
     size_t stacksize;
+    int detachstate;
     int policy;
     int priority;
+    int inheritsched;
 } pthread_attr_t;
 
 /* Mutex types */
@@ -119,6 +120,9 @@ typedef struct thread_pool {
 } thread_pool_t;
 
 /* Constants & Initializers */
+#define PTHREAD_INHERIT_SCHED   0
+#define PTHREAD_EXPLICIT_SCHED  1
+
 #define PTHREAD_CREATE_JOINABLE  0
 #define PTHREAD_CREATE_DETACHED  1
 

@@ -9,6 +9,7 @@ int pthread_attr_init(pthread_attr_t *attr)
     attr->stacksize = 0;
     attr->policy = SCHED_FIFO;
     attr->priority = 0;
+    attr->inheritsched = PTHREAD_INHERIT_SCHED;  /* POSIX default */
     return 0;
 }
 
@@ -62,6 +63,29 @@ int pthread_attr_getschedpolicy(const pthread_attr_t *attr, int *policy)
 {
     if (!attr || !policy) return EINVAL;
     *policy = attr->policy;
+    return 0;
+}
+
+int pthread_attr_setinheritsched(pthread_attr_t *attr, int inheritsched) {
+    if (!attr) {
+        return EINVAL;
+    }
+    
+    if (inheritsched != PTHREAD_INHERIT_SCHED && 
+        inheritsched != PTHREAD_EXPLICIT_SCHED) {
+        return EINVAL;
+    }
+    
+    attr->inheritsched = inheritsched;
+    return 0;
+}
+
+int pthread_attr_getinheritsched(const pthread_attr_t *attr, int *inheritsched) {
+    if (!attr || !inheritsched) {
+        return EINVAL;
+    }
+    
+    *inheritsched = attr->inheritsched;
     return 0;
 }
 
