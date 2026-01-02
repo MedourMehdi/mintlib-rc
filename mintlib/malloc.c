@@ -27,7 +27,7 @@
 static size_t MINHUNK =	8192L;	/* default */
 static size_t MAXHUNK = 32 * 1024L; /* max. default */
 
-static volatile unsigned char malloc_lock = 0;
+static volatile unsigned short malloc_lock __attribute__((aligned(2))) = 0;
 
 static inline void _lock_acquire(void) {
     if (__mint_is_multithreaded) {

@@ -22,8 +22,8 @@ extern "C" {
 
 typedef struct
 {
-    volatile short count;           /* Current semaphore count */
     struct thread *wait_queue;      /* Queue of threads waiting on this sem */
+    volatile short count;           /* Current semaphore count */
     /* Non threaded values */
     volatile short io_count;        /* Reference count for named sems */
     char sem_id[SEM_NAME_MAX + 1];  /* Fixed array instead of pointer */

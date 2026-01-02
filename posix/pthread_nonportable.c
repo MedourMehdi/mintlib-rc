@@ -59,3 +59,9 @@ int pthread_tryjoin_np(pthread_t thread, void **retval)
     }
     return 0; // Successfully joined
 }
+
+int pthread_setup_threading_np(void) {
+    long result = sys_p_thread_ctrl(THREAD_CTRL_SETUP_THREADING, 0, 0);
+    __mint_is_multithreaded = 1;
+    return (result < 0) ? -result : 0;
+}

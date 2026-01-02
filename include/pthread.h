@@ -271,7 +271,7 @@ int pthread_setname_np(pthread_t thread, const char *name);
 int pthread_getname_np(pthread_t thread, char *name, size_t len);
 int pthread_is_initialthread_np(void);
 int pthread_is_multithreaded_np(void);
-
+int pthread_setup_threading_np(void);
 /* ====================== */
 /* Utility Functions */
 /* ====================== */
