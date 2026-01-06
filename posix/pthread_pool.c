@@ -39,6 +39,7 @@ static void *thread_pool_worker(void *arg) {
 
 thread_pool_t *thread_pool_create(int thread_count) {
     thread_pool_t *pool = NULL;
+    int i;
 
     if (thread_count <= 0) thread_count = 1;
     
@@ -62,7 +63,7 @@ thread_pool_t *thread_pool_create(int thread_count) {
     pool->started = 0;
     
     // Create worker threads
-    for (int i = 0; i < thread_count; i++) {
+    for (i = 0; i < thread_count; i++) {
         if (pthread_create(&pool->threads[i], NULL, thread_pool_worker, pool) != 0) {
             thread_pool_destroy(pool, 1);
             return NULL;
@@ -104,6 +105,7 @@ int thread_pool_add(thread_pool_t *pool, void (*function)(void *), void *argumen
 
 int thread_pool_destroy(thread_pool_t *pool, int graceful) {
     thread_pool_task_t *task = NULL;
+    int i;
 
     if (!pool) return -1;
     
@@ -113,7 +115,7 @@ int thread_pool_destroy(thread_pool_t *pool, int graceful) {
     pthread_mutex_unlock(&pool->lock);
     
     // Wait for threads to finish
-    for (int i = 0; i < pool->thread_count; i++) {
+    for (i = 0; i < pool->thread_count; i++) {
         pthread_join(pool->threads[i], NULL);
     }
     

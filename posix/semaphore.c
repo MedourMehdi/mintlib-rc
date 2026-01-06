@@ -50,6 +50,7 @@ int32_t sem_id_from_name(const char *name) {
     char sem_id_chars[5] = {'\0'};
     const char *id_source;
     size_t len;
+    int i;
 
     /* For named semaphores from sem_open, skip the '/' and process the rest */
     id_source = (name[0] == '/') ? name + 1 : name;
@@ -66,6 +67,7 @@ int32_t sem_id_from_name(const char *name) {
     } else {
         /* Long names: use first char + hash of remaining chars */
         unsigned int hash = 0;
+        
         sem_id_chars[0] = id_source[0];
         /* Simple hash function for remaining characters */
         for (size_t i = 1; i < len; i++) {
@@ -79,7 +81,7 @@ int32_t sem_id_from_name(const char *name) {
     }
     
     /* Ensure no null chars in the middle - replace with 'X' */
-    for (int i = 0; i < 4; i++) {
+    for (i = 0; i < 4; i++) {
         if (sem_id_chars[i] == '\0') {
             sem_id_chars[i] = 'X';
         }
