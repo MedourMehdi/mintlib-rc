@@ -2,6 +2,7 @@
 #include "pthread_priv.h"
 
 void pthread_cleanup_push(void (*routine)(void*), void *arg) {
+    if (!__mint_is_multithreaded) pthread_setup_threading_np();
     sys_p_thread_sync(THREAD_SYNC_CLEANUP_PUSH, (long)routine, (long)arg);
 }
 
@@ -17,8 +18,10 @@ void pthread_cleanup_push(void (*routine)(void*), void *arg) {
 void pthread_cleanup_pop(int execute) {
     void (*routine)(void*);
     void *arg;
+    long result;
     
-    long result = sys_p_thread_sync(THREAD_SYNC_CLEANUP_POP, (long)&routine, (long)&arg);
+    if (!__mint_is_multithreaded) pthread_setup_threading_np();
+    result = sys_p_thread_sync(THREAD_SYNC_CLEANUP_POP, (long)&routine, (long)&arg);
     
     if (execute && result > 0 && routine) {
         routine(arg);

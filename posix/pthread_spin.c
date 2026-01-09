@@ -24,9 +24,9 @@ static char* gen_spinlock_shm_path(void) {
 
 /* Structure for shared spinlock - in shared memory */
 typedef struct {
-    volatile int lock;
-    volatile int refcount;
-    volatile int initialized;
+    volatile long lock;
+    volatile long refcount;
+    volatile long initialized;
 } pthread_spin_shm_t;
 
 /* Local structure to track shared memory handles */
@@ -34,13 +34,13 @@ typedef struct {
     pthread_spin_shm_t *shm_ptr;  /* Fixed: was pthread_spin_local_t */
     long file_handle;
     char *shm_path;
-    int is_creator;
+    short is_creator;
 } pthread_spin_local_t;
 
 /* Structure for private spinlock */
 typedef struct {
-    volatile int lock;
-    int magic;  // Magic number to identify private locks
+    volatile long lock;           // 32-bit for CAS or 16-bit for TAS
+    long magic;
 } pthread_spin_private_t;
 
 #define PRIVATE_SPINLOCK_MAGIC 0x50535043  // "PSPC"
@@ -229,37 +229,6 @@ int pthread_spin_destroy(pthread_spinlock_t *lock) {
     }
 }
 
-// // Lock function using kernel atomic operations
-// int pthread_spin_lock(pthread_spinlock_t *lock) {
-//     if (!lock || !*lock) return EINVAL;
-    
-//     if (is_private_lock(lock)) {
-//         // Private lock
-//         pthread_spin_private_t *private_lock = (pthread_spin_private_t *)*lock;
-//         while (1) {
-//             // Use kernel CAS to acquire lock - CAS returns 1 for success
-//             if (sys_p_thread_atomic(THREAD_ATOMIC_CAS, (long)&private_lock->lock, 0, 1) == 1) {
-//                 return 0;  // Successfully acquired lock
-//             }
-//             sys_p_thread_sync(THREAD_SYNC_YIELD, 0, 0);
-//         }
-//     } else {
-//         // Shared lock
-//         pthread_spin_local_t *local = (pthread_spin_local_t *)*lock;
-//         pthread_spin_shm_t *shm = local->shm_ptr;
-        
-//         if (!local || !shm) return EINVAL;
-        
-//         while (1) {
-//             // Use kernel CAS to acquire lock - CAS returns 1 for success
-//             if (sys_p_thread_atomic(THREAD_ATOMIC_CAS, (long)&shm->lock, 0, 1) == 1) {
-//                 return 0;  // Successfully acquired lock
-//             }
-//             sys_p_thread_sync(THREAD_SYNC_YIELD, 0, 0);
-//         }
-//     }
-// }
-
 // Trylock using kernel CAS
 int pthread_spin_trylock(pthread_spinlock_t *lock) {
     if (!lock || !*lock) return EINVAL;
@@ -279,108 +248,6 @@ int pthread_spin_trylock(pthread_spinlock_t *lock) {
         return EINVAL;
     }
 }
-
-// // Unlock function using kernel exchange
-// int pthread_spin_unlock(pthread_spinlock_t *lock) {
-//     if (!lock || !*lock) return EINVAL;
-    
-//     if (is_private_lock(lock)) {
-//         // Private lock
-//         pthread_spin_private_t *private_lock = (pthread_spin_private_t *)*lock;
-//         sys_p_thread_atomic(THREAD_ATOMIC_EXCHANGE, (long)&private_lock->lock, 0, 0);
-//     } else {
-//         // Shared lock
-//         pthread_spin_local_t *local = (pthread_spin_local_t *)*lock;
-//         if (local && local->shm_ptr) {
-//             sys_p_thread_atomic(THREAD_ATOMIC_EXCHANGE, (long)&local->shm_ptr->lock, 0, 0);
-//         } else {
-//             return EINVAL;
-//         }
-//     }
-//     return 0;
-// }
-
-// /**
-//  * Attach to existing shared spinlock - corrected version
-//  */
-// int pthread_spin_attach(pthread_spinlock_t *lock, const char *shm_path) {
-//     pthread_spin_local_t *local = NULL;
-//     pthread_spin_shm_t *shm_mem = NULL;
-//     long file_handle;
-//     int timeout;
-//     volatile int test_access;
-
-//     if (!lock || !shm_path) return EINVAL;
-    
-//     // Allocate local structure
-//     local = (pthread_spin_local_t*)Mxalloc(sizeof(pthread_spin_local_t), MX_PREFTTRAM);
-//     if (!local) return ENOMEM;
-//     memset(local, 0, sizeof(pthread_spin_local_t));
-    
-//     // Copy shared memory path
-//     local->shm_path = (char*)Mxalloc(strlen(shm_path) + 1, MX_PREFTTRAM);
-//     if (!local->shm_path) {
-//         Mfree(local);
-//         return ENOMEM;
-//     }
-//     strcpy(local->shm_path, shm_path);
-    
-//     // Open existing shared memory file
-//     file_handle = Fopen(shm_path, O_RDWR);
-//     if (file_handle < 0) {
-//         Mfree(local->shm_path);
-//         Mfree(local);
-//         return -file_handle;
-//     }
-    
-//     // Get the existing shared memory block (don't try to set a new one)
-//     if (Fcntl(file_handle, &shm_mem, SHMGETBLK) < 0) {
-//         Fclose(file_handle);
-//         Mfree(local->shm_path);
-//         Mfree(local);
-//         return EIO;
-//     }
-    
-//     // Validate that we got a valid pointer
-//     if (!shm_mem) {
-//         Fclose(file_handle);
-//         Mfree(local->shm_path);
-//         Mfree(local);
-//         return EIO;
-//     }
-    
-//     // Test memory accessibility before using it
-//     __asm__ volatile (
-//         "move.l %1, %%a0\n\t"
-//         "move.l (%%a0), %0\n\t"
-//         : "=d" (test_access)
-//         : "a" (&shm_mem->initialized)
-//         : "a0", "memory"
-//     );
-    
-//     // Wait for initialization with timeout
-//     timeout = 1000; // 1000 yields = reasonable timeout
-//     while (!shm_mem->initialized && timeout-- > 0) {
-//         sys_p_thread_sync(THREAD_SYNC_YIELD, 0, 0);
-//     }
-    
-//     if (!shm_mem->initialized) {
-//         Fclose(file_handle);
-//         Mfree(local->shm_path);
-//         Mfree(local);
-//         return ETIMEDOUT;
-//     }
-    
-//     // Atomically increment reference count using kernel atomic
-//     sys_p_thread_atomic(THREAD_ATOMIC_INCREMENT, (long)&shm_mem->refcount, 0, 0);
-    
-//     local->shm_ptr = shm_mem;
-//     local->file_handle = file_handle;
-//     local->is_creator = 0;
-    
-//     *lock = (pthread_spinlock_t)local;
-//     return 0;
-// }
 
 // Helper function to detect if this is a file-based shared lock
 static int is_file_based_lock(pthread_spinlock_t *lock) {

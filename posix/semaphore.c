@@ -133,6 +133,7 @@ int sem_init(sem_t *sem, int pshared, unsigned int value) {
         sem_id = name_to_sem_id(sem->sem_id);
         sem->count = value;
         sem->io_count = 0;
+        sem->wait_queue = NULL;
 
         result = Psemaphore(0, sem_id, 0);
         if(result < 0) {
@@ -221,12 +222,6 @@ int sem_trywait(sem_t *sem) {
 
         /* Multithreaded mode: use atomic syscall for check-and-decrement */
         /* Try to atomically decrement count if it's > 0 */
-        
-        /* First check if count > 0 without decrementing */
-        if (sem->count <= 0) {
-            errno = EAGAIN;
-            return -1;
-        }
         
         /* Use atomic compare-and-swap to decrement if still > 0 */
         /* This will atomically check if count > 0 and decrement if so */

@@ -12,7 +12,9 @@ int pthread_cancel(pthread_t thread)
 
 int pthread_setcancelstate(int state, int *oldstate)
 {
-    long result = sys_p_thread_ctrl(THREAD_CTRL_SETCANCELSTATE, 
+    long result;
+    if (!__mint_is_multithreaded) pthread_setup_threading_np();
+    result = sys_p_thread_ctrl(THREAD_CTRL_SETCANCELSTATE, 
                                    state, 
                                    (long)oldstate);
     return (result < 0) ? -result : 0;
@@ -20,7 +22,9 @@ int pthread_setcancelstate(int state, int *oldstate)
 
 int pthread_setcanceltype(int type, int *oldtype)
 {
-    long result = sys_p_thread_ctrl(THREAD_CTRL_SETCANCELTYPE, 
+    long result;
+    if (!__mint_is_multithreaded) pthread_setup_threading_np();
+    result = sys_p_thread_ctrl(THREAD_CTRL_SETCANCELTYPE, 
                                    type, 
                                    (long)oldtype);
     return (result < 0) ? -result : 0;
@@ -28,5 +32,6 @@ int pthread_setcanceltype(int type, int *oldtype)
 
 void pthread_testcancel(void)
 {
+    if (!__mint_is_multithreaded) pthread_setup_threading_np();
     sys_p_thread_ctrl(THREAD_CTRL_TESTCANCEL, 0, 0);
 }

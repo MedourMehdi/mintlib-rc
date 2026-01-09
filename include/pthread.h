@@ -83,7 +83,7 @@ typedef struct {
 
 /* Thread-specific data */
 typedef unsigned int pthread_key_t;
-typedef int pthread_once_t;
+typedef long pthread_once_t;
 
 /* Barrier */
 typedef struct {
@@ -131,7 +131,7 @@ typedef struct thread_pool {
 #define PTHREAD_MUTEX_ERRORCHECK 2
 #define PTHREAD_MUTEX_DEFAULT    PTHREAD_MUTEX_NORMAL
 
-#define PTHREAD_ONCE_INIT        0
+#define PTHREAD_ONCE_INIT        0L
 #define PTHREAD_MUTEX_INITIALIZER {NULL, NULL, 0, 0, 0, 0, 0, 0}
 #define PTHREAD_RWLOCK_INITIALIZER 0
 #define PTHREAD_COND_INITIALIZER {NULL, NULL, 0xC0DEC0DE, 0, 0}

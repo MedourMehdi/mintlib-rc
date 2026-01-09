@@ -8,6 +8,7 @@ int pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr)
     long result;
 
     if (!mutex) return EINVAL;
+    if (!__mint_is_multithreaded) pthread_setup_threading_np();
     result = sys_p_thread_sync(THREAD_SYNC_MUTEX_INIT, (long)mutex, (long)attr);
     return (result < 0) ? -result : 0;
 }
@@ -17,6 +18,7 @@ int pthread_mutex_lock(pthread_mutex_t *mutex)
     long result;
     
     if (!mutex) return EINVAL;
+    if (!__mint_is_multithreaded) pthread_setup_threading_np();
     result = sys_p_thread_sync(THREAD_SYNC_MUTEX_LOCK, (long)mutex, 0);
     return (result < 0) ? -result : 0;
 }
@@ -26,7 +28,7 @@ int pthread_mutex_trylock(pthread_mutex_t *mutex)
     long result;
     
     if (!mutex) return EINVAL;
-    
+    if (!__mint_is_multithreaded) pthread_setup_threading_np();
     /* Use dedicated system call for trylock - don't peek at internal state */
     result = sys_p_thread_sync(THREAD_SYNC_MUTEX_TRYLOCK, (long)mutex, 0);
     return (result < 0) ? -result : 0;
@@ -54,6 +56,7 @@ int pthread_mutexattr_init(pthread_mutexattr_t *attr){
     long result;
     
     if (!attr) return EINVAL;
+    if (!__mint_is_multithreaded) pthread_setup_threading_np();
     result = sys_p_thread_sync(THREAD_SYNC_MUTEX_ATTR_INIT, (long)attr, 0);
     return (result < 0) ? -result : 0;
 }

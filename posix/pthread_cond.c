@@ -7,6 +7,8 @@ int pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr)
     long result;
 
     if (!cond) return EINVAL;
+    if (!__mint_is_multithreaded) pthread_setup_threading_np();
+
     cond->wait_queue = NULL;
     cond->associated_mutex = NULL;
     cond->magic = CONDVAR_MAGIC;
@@ -77,6 +79,7 @@ int pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
 int pthread_condattr_init(pthread_condattr_t *attr)
 {
     if (!attr) return EINVAL;
+    if (!__mint_is_multithreaded) pthread_setup_threading_np();
     attr->type = 0;
     return 0;
 }
