@@ -65,9 +65,8 @@ __sigaction(int sig, const struct sigaction *act, struct sigaction *oact)
 			_sig_handler[sig] = (sighandler_t)kact.sa_handler;
             /* Check if this is a thread-specific signal (SIGUSR1/SIGUSR2) */
             /* For thread signals, kernel handles the trampoline, so pass handler directly */
-            int is_thread_signal = (sig == SIGUSR1 || sig == SIGUSR2);
             
-            if (!is_thread_signal && 
+            if (!(sig == SIGUSR1 || sig == SIGUSR2) && 
                 _sig_handler[sig] != SIG_DFL && 
                 _sig_handler[sig] != SIG_IGN) {
                 kact.sa_handler = __signal_trampoline;
