@@ -52,6 +52,7 @@ MISCFILES = 00README COPYMINT COPYING COPYING.LIB MISCFILES \
 	nl_types.h \
 	obstack.h \
 	osbind.h \
+	osatomic.h \
 	paths.h \
 	poll.h \
 	process.h \

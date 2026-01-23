@@ -72,9 +72,10 @@ __sleep (unsigned int n)
 			if(pthread_self() > 0){
 				/* Use pthread sleep for multithreaded environment */
 				return msleep(n * 1000) == 0 ? 0 : n;
-			} else {
-				return usleep(n * 1000 * 1000) ? 0 : n; /* Use usleep for main thread */
-			}
+			} 
+			// else {
+			// 	return usleep(n * 1000 * 1000) ? 0 : n; /* Use usleep for main thread */
+			// }
 		}
 		if (n == 0)
 			return 0;

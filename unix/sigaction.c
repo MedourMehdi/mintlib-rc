@@ -96,15 +96,15 @@ __sigaction(int sig, const struct sigaction *act, struct sigaction *oact)
                     return -1;
                 }
             } 
-			else {
-                /* Ensure any previous extended handler is cleared */
-                __sigaction_set_extended(sig, NULL);
-            }
+			// else {
+            //     /* Ensure any previous extended handler is cleared */
+            //     __sigaction_set_extended(sig, NULL);
+            // }
         } 
-		else {
-            /* act == NULL -> no install: clear any extended handler */
-            __sigaction_set_extended(sig, NULL);
-        }		
+		// else {
+        //     /* act == NULL -> no install: clear any extended handler */
+        //     __sigaction_set_extended(sig, NULL);
+        // }
 		if (oact) {
 			oact->sa_mask = koact.sa_mask;
 			oact->sa_flags = (int) koact.sa_flags;
