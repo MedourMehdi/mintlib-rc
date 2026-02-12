@@ -41,4 +41,5 @@ MISCFILES = MISCFILES \
 	time.h \
 	types.h \
 	uintn-id.h \
+	utmpx.h \
 	xopen_lim.h

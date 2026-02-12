@@ -7,6 +7,7 @@ MISCFILES = 00README COPYMINT COPYING COPYING.LIB MISCFILES \
 	_stdarg_h \
 	_stddef_h \
 	_varargs_h \
+	aio.h \
 	alloca.h \
 	argz.h \
 	argp.h \
@@ -15,15 +16,19 @@ MISCFILES = 00README COPYMINT COPYING COPYING.LIB MISCFILES \
 	err.h \
 	clean-include \
 	compiler.h \
+	cpio.h \
 	crypt.h \
 	ctype.h \
+	devctl.h \
 	device.h \
 	dirent.h \
+	dlfcn.h \
 	endian.h \
 	errno.h \
 	error.h \
 	fcntl.h \
 	features.h \
+	fmtmsg.h \
 	fnmatch.h \
 	ftw.h \
 	getopt.h \
@@ -32,13 +37,16 @@ MISCFILES = 00README COPYMINT COPYING COPYING.LIB MISCFILES \
 	ar.h \
 	gnu-out.h \
 	grp.h \
+	iconv.h \
 	ieee754.h \
 	ifaddrs.h \
 	inttypes.h \
 	iovec.h \
+	iso646.h \
 	langinfo.h \
 	lastlog.h \
 	libgen.h \
+	libintl.h \
 	limits.h \
 	linker.h \
 	locale.h \
@@ -48,6 +56,9 @@ MISCFILES = 00README COPYMINT COPYING COPYING.LIB MISCFILES \
 	minimal.h \
 	mintbind.h \
 	mntent.h \
+	monetary.h \
+	mqueue.h \
+	ndbm.h \
 	netdb.h \
 	nl_types.h \
 	obstack.h \
@@ -56,6 +67,7 @@ MISCFILES = 00README COPYMINT COPYING COPYING.LIB MISCFILES \
 	poll.h \
 	process.h \
 	printf.h \
+	pthread.h \
 	pty.h \
 	pwd.h \
 	re_comp.h \
@@ -72,10 +84,15 @@ MISCFILES = 00README COPYMINT COPYING COPYING.LIB MISCFILES \
 	shadow.h \
 	signal.h \
 	sockios.h \
+	spawn.h \
 	st-out.h \
+	stdalign.h \
+	stdatomic.h \
+	stdbool.h \
 	stdint.h \
 	stdio.h \
 	stdlib.h \
+	stdnoreturn.h \
 	string.h \
 	strings.h \
 	support.h \
@@ -88,12 +105,15 @@ MISCFILES = 00README COPYMINT COPYING COPYING.LIB MISCFILES \
 	tcmath.h \
 	termio.h \
 	termios.h \
+	threads.h \
 	time.h \
+	uchar.h \
 	ucontext.h \
 	unistd.h \
 	utime.h \
 	utmp.h \
 	utmpbits.h \
+	utmpx.h \
 	values.h \
 	vt52.h \
 	wait.h \

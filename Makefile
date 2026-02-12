@@ -8,7 +8,7 @@
 # understand and accept it fully.
 
 MAKEFLAGS = -r
-SHELL = /bin/sh
+SHELL = /bin/bash
 
 srcdir = .
 top_srcdir = .

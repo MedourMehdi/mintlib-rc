@@ -12,6 +12,7 @@ MISCFILES = MISCFILES \
 	gmon_out.h \
 	ioctl.h \
 	ipc.h \
+	mman.h \
 	mount.h \
 	msg.h \
 	param.h \
