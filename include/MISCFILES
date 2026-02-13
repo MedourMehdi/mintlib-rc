@@ -3,9 +3,20 @@
 
 MISCFILES = 00README COPYMINT COPYING COPYING.LIB MISCFILES \
 	\
+	_complex_h \
+	_fenv_h \
 	_float_h \
+	_iconv_h \
+	_iso646_h \
+	_libintl_h \
+	_math_h \
+	_stdalign_h \
 	_stdarg_h \
+	_stdatomic_h \
+	_stdbool_h \
 	_stddef_h \
+	_stdnoreturn_h \
+	_tgmath_h \
 	_varargs_h \
 	aio.h \
 	alloca.h \
@@ -37,16 +48,13 @@ MISCFILES = 00README COPYMINT COPYING COPYING.LIB MISCFILES \
 	ar.h \
 	gnu-out.h \
 	grp.h \
-	iconv.h \
 	ieee754.h \
 	ifaddrs.h \
 	inttypes.h \
 	iovec.h \
-	iso646.h \
 	langinfo.h \
 	lastlog.h \
 	libgen.h \
-	libintl.h \
 	limits.h \
 	linker.h \
 	locale.h \
@@ -86,13 +94,9 @@ MISCFILES = 00README COPYMINT COPYING COPYING.LIB MISCFILES \
 	sockios.h \
 	spawn.h \
 	st-out.h \
-	stdalign.h \
-	stdatomic.h \
-	stdbool.h \
 	stdint.h \
 	stdio.h \
 	stdlib.h \
-	stdnoreturn.h \
 	string.h \
 	strings.h \
 	support.h \

@@ -1,0 +1,9 @@
+#ifdef __GNUC__
+# error Ooops, this shouldn't happen, please read comment below.
+/* This file is as part of fdlibm.  Please install fdlibm
+   to make <math.h> available in /usr/include.  */
+#else
+
+# error Ooops, this shouldn't happen, please read comment below.
+/* This file is as part of fdlibm.  Please install fdlibm
+   to make <math.h> available in /usr/include for gcc.  */

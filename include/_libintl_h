@@ -1,0 +1,14 @@
+#ifdef __GNUC__
+# error Ooops, this shouldn't happen, please read comment below.
+/* This file is available as part of gettext.  Please install gettext
+   to make <libintl.h> available in /usr/include.  */
+#else
+
+# error Ooops, this shouldn't happen, please read comment below.
+/* This file is available as part of gettext.  Please install gettext
+   to make <libintl.h> available in /usr/include for gcc.  */
+
+
+
+
+

@@ -1,0 +1,15 @@
+#ifdef __GNUC__
+# error Ooops, this shouldn't happen, please read comment below.
+/* This file is obsolete for recent gcc versions.  Recent gcc systems
+   have their own <tgmath.h> in 
+   /usr/lib/gcc/m68k-atari-mint/<version>/include.  */
+#else
+
+# error Ooops, this shouldn't happen, please read comment below.
+/* This file is obsolete. Recent gcc versions have their own <tgmath.h> in
+   /usr/lib/gcc/m68k-atari-mint/<version>/include.  */
+
+
+
+
+

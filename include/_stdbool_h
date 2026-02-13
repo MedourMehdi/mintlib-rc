@@ -1,3 +1,10 @@
+#ifdef __GNUC__
+# error Ooops, this shouldn't happen, please read comment below.
+/* This file is obsolete for recent gcc versions.  Recent gcc systems
+   have their own <stdbool.h> in 
+   $prefix/gcc-lib/m68k-atari-mint/<version>/include.  */
+#else
+
 /*
  * Written by Marc Espie, September 25, 1999
  * Public domain.

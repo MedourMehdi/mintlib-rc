@@ -1,0 +1,14 @@
+#ifdef __GNUC__
+# error Ooops, this shouldn't happen, please read comment below.
+/* This file is available as part of libiconv.  Please install libiconv
+   to make <iconv.h> available in /usr/include.  */
+#else
+
+# error Ooops, this shouldn't happen, please read comment below.
+/* This file is available as part of libiconv.  Please install libiconv
+   to make <iconv.h> available in /usr/include for gcc.  */
+
+
+
+
+
