@@ -1,21 +1,21 @@
-/* from Henry Spencer's stringlib */
+#define strlen __inline_strlen
 #include <string.h>
 #undef strlen
 
-#if __GNUC_PREREQ(7, 0)
-# pragma GCC diagnostic ignored "-Wnonnull-compare"
-#endif
+size_t strlen(const char *scan);
 
 /*
  * strlen - length of string (not including NUL)
  */
-size_t
-strlen(const char *scan)
+size_t strlen(const char *scan)
 {
-	register const char *start = scan+1;
+#ifdef __OPTIMIZE__
+	return __inline_strlen(scan);
+#else
+	const char *start = scan;
 
-	if (!scan) return 0;
 	while (*scan++ != '\0')
 		continue;
-	return (size_t)((long)scan - (long)start);
+	return scan - start - 1;
+#endif
 }

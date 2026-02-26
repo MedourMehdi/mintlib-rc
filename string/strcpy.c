@@ -7,14 +7,16 @@
 /*
  * strcpy - copy string src to dst
  */
-char *				/* dst */
-strcpy(char *dst, const char *src)
+char *strcpy(char *dst, const char *src)
 {
-	register char *dscan = dst;
-	register const char *sscan = src;
+#ifdef __OPTIMIZE__
+	return __inline_strcpy(dst, src);
+#else
+	char *dscan = dst;
+	const char *sscan = src;
 
-	if (!sscan) sscan = "";
 	while ((*dscan++ = *sscan++) != '\0')
 		continue;
-	return(dst);
+	return dst;
+#endif
 }
