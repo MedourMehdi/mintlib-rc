@@ -10,7 +10,7 @@
 #
 # currently also duplicated at top of private.h; FIXME
 #
-TZVERSION = 2022g
+TZVERSION = 2025b
 TZ_BUGEMAIL = tz@iana.org
 PKGVERSION = mintlib
 
@@ -46,22 +46,14 @@ include $(top_srcdir)/checkrules
 
 LOCALTIME=	Factory
 
-# The POSIXRULES macro controls interpretation of nonstandard and obsolete
-# POSIX-like TZ settings like TZ='EET-2EEST' that lack DST transition rules.
-# Such a setting uses the rules in a template file to determine
-# "spring forward" and "fall back" days and times; the environment
-# variable itself specifies UT offsets of standard and daylight saving time.
-#
+# The POSIXRULES macro controls interpretation of POSIX-like TZ
+# settings like TZ='EET-2EEST' that lack DST transition rules.
 # If POSIXRULES is '-', no template is installed; this is the default.
-#
 # Any other value for POSIXRULES is obsolete and should not be relied on, as:
 # * It does not work correctly in popular implementations such as GNU/Linux.
 # * It does not work even in tzcode, except for historical timestamps
 #   that precede the last explicit transition in the POSIXRULES file.
 #   Hence it typically does not work for current and future timestamps.
-# In short, software should avoid ruleless settings like TZ='EET-2EEST'
-# and so should not depend on the value of POSIXRULES.
-#
 # If, despite the above, you want a template for handling these settings,
 # you can change the line below (after finding the timezone you want in the
 # one of the $(TDATA) source files, or adding it to a source file).
@@ -161,7 +153,7 @@ YDATA =	$(PRIMARY_YDATA) etcetera $(BACKWARD) $(PACKRATDATA)
 NDATA =	factory
 #SDATA =	solar87 solar88 solar89
 TDATA =	$(YDATA) $(NDATA) $(SDATA)
-ZONETABLES=	zone1970.tab zone.tab
+ZONETABLES=	zone.tab zone1970.tab zonenow.tab
 TABDATA = iso3166.tab $(TZDATA_TEXT) $(ZONETABLES)
 LEAP_DEPS =	$(srcdir)/leapseconds.awk $(srcdir)/leap-seconds.list
 TZDATA_ZI_DEPS=	ziguard.awk zishrink.awk $(TDATA) $(PACKRATDATA) $(PACKRATLIST)
@@ -336,7 +328,7 @@ leapseconds:	$(LEAP_DEPS)
 		$(AWK) -f $(srcdir)/leapseconds.awk $(srcdir)/leap-seconds.list >$@.out
 		mv $@.out $@
 
-tzselect: $(srcdir)/tzselect.ksh
+tzselect: $(srcdir)/tzselect.ksh Makefile
 	sed \
 		-e 's|AWK=[^}]*|AWK=$(AWK)|g' \
 		-e 's|TZDIR=[^}]*|TZDIR=$(TZDIR)|' \
@@ -379,5 +371,10 @@ zonenames: tzdata.zi
 
 zonelist: tzdata.zi
 	$(MAKE_ZONENAMES) >$@
+
+checkdb:: $(OBJS_FOR_BUILD)
+	$(CC_FOR_BUILD) $(CFLAGS_FOR_BUILD) $(CPPFLAGS_FOR_BUILD) -o teststate teststate.c
+	: $${TZDIR=/usr/share/zoneinfo}; find $$TZDIR -type f | grep -v '\.tab' | grep -v '\.zi' | grep -v leap | xargs ./teststate
+	rm -f teststate
 
 -include $(top_srcdir)/phony

@@ -301,4 +301,12 @@
 # endif
 #endif
 
+#if !defined(_Noreturn)
+# if __GNUC_PREREQ (2,8)
+#  define _Noreturn __attribute__ ((__noreturn__))
+# else
+#  define _Noreturn
+# endif
+#endif
+
 #endif	 /* sys/cdefs.h */

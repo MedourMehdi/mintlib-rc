@@ -5,11 +5,12 @@
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
+#include <stddef.h>
 
 #define PRIVATE_H
 
 #define PKGVERSION "(mintlib) "
-#define TZVERSION  "2022g"
+#define TZVERSION  "2025b"
 #define REPORT_BUGS_TO "tz@iana.org"
 
 
@@ -26,6 +27,16 @@
 ** Thank you!
 */
 
+/* PORT_TO_C89 means the code should work even if the underlying
+   compiler and library support only C89.  SUPPORT_C89 means the
+   tzcode library should support C89 callers in addition to the usual
+   support for C99-and-later callers.  These macros are obsolescent,
+   and the plan is to remove them along with any code needed only when
+   they are nonzero.  */
+#ifndef SUPPORT_C89
+# define SUPPORT_C89 1
+#endif
+
 #ifndef __STDC_VERSION__
 # define __STDC_VERSION__ 0
 #endif
@@ -37,6 +48,11 @@
 # define bool int
 #elif __STDC_VERSION__ < 202311
 # include <stdbool.h>
+#endif
+
+#if __STDC_VERSION__ < 202311
+# undef static_assert
+# define static_assert(cond) extern int static_assert_check[(cond) ? 1 : -1]
 #endif
 
 /*
@@ -187,6 +203,27 @@
 
 #if HAVE_UNISTD_H
 #include "unistd.h"	/* for F_OK, R_OK, and other POSIX goodness */
+#endif
+
+/* SUPPORT_POSIX2008 means the tzcode library should support
+   POSIX.1-2017-and-earlier callers in addition to the usual support for
+   POSIX.1-2024-and-later callers; however, this can be
+   incompatible with POSIX.1-2024-and-later callers.
+   This macro is obsolescent, and the plan is to remove it
+   along with any code needed only when it is nonzero.
+   A good time to do that might be in the year 2034.
+   This macro's name is SUPPORT_POSIX2008 because _POSIX_VERSION == 200809
+   in POSIX.1-2017, a minor revision of POSIX.1-2008.  */
+#ifndef SUPPORT_POSIX2008
+# define SUPPORT_POSIX2008 1
+#endif
+
+#ifndef HAVE_DECL_ASCTIME_R
+# if SUPPORT_POSIX2008
+#  define HAVE_DECL_ASCTIME_R 1
+# else
+#  define HAVE_DECL_ASCTIME_R 0
+# endif
 #endif
 
 #ifndef HAVE_STRFTIME_L
@@ -392,6 +429,14 @@ typedef unsigned long uintmax_t;
 #ifndef SIZE_MAX
 #define SIZE_MAX ((size_t) -1)
 #endif
+
+/* The maximum size of any created object, as a signed integer.
+   Although the C standard does not outright prohibit larger objects,
+   behavior is undefined if the result of pointer subtraction does not
+   fit into ptrdiff_t, and the code assumes in several places that
+   pointer subtraction works.  As a practical matter it's OK to not
+   support objects larger than this.  */
+#define INDEX_MAX ((ptrdiff_t) min(PTRDIFF_MAX, SIZE_MAX))
 
 /* Support ckd_add, ckd_sub, ckd_mul on C23 or recent-enough GCC-like
    hosts, unless compiled with -DHAVE_STDCKDINT_H=0 or with pre-C23 EDG.  */
@@ -599,7 +644,11 @@ extern long altzone;
 ** declarations if time_tz is defined.
 */
 
-#ifdef STD_INSPIRED
+#ifndef STD_INSPIRED
+# define STD_INSPIRED 0
+#endif
+
+#if STD_INSPIRED
 # if TZ_TIME_T || !defined tzsetwall
 void tzsetwall(void);
 # endif
@@ -652,7 +701,7 @@ struct tm *localtime_rz(timezone_t __restrict, time_t const *__restrict,
 time_t mktime_z(timezone_t __restrict, struct tm *__restrict);
 timezone_t tzalloc(const char *);
 void tzfree(timezone_t);
-# ifdef STD_INSPIRED
+# if STD_INSPIRED
 #  if TZ_TIME_T || !defined posix2time_z
 time_t posix2time_z(timezone_t, time_t) ATTRIBUTE_PURE;
 #  endif
@@ -674,7 +723,7 @@ time_t time2posix_z(timezone_t, time_t) ATTRIBUTE_PURE;
 #define FALSE	0
 #endif
 
-#define TYPE_BIT(type)	(sizeof (type) * CHAR_BIT)
+#define TYPE_BIT(type)	(CHAR_BIT * (ptrdiff_t) sizeof(type))
 #define TYPE_SIGNED(type) (((type) -1) < 0)
 #define TWOS_COMPLEMENT(t) ((t) ~ (t) 0 < 0)
 
@@ -710,6 +759,14 @@ time_t time2posix_z(timezone_t, time_t) ATTRIBUTE_PURE;
    of the standard signed integer types.  */
 # define TIME_T_MIN TIME_T_MIN_NO_PADDING
 # define TIME_T_MAX TIME_T_MAX_NO_PADDING
+enum { SIGNED_PADDING_CHECK_NEEDED = true };
+/* Try to check the padding assumptions.  Although TIME_T_MAX and the
+   following check can both have undefined behavior on oddball
+   platforms due to shifts exceeding widths of signed integers, these
+   platforms' compilers are likely to diagnose these issues in integer
+   constant expressions, so it shouldn't hurt to check statically.  */
+static_assert(! TYPE_SIGNED(time_t) || ! SIGNED_PADDING_CHECK_NEEDED
+	      || TIME_T_MAX >> (TYPE_BIT(time_t) - 2) == 1);
 
 #ifndef INT_STRLEN_MAXIMUM
 /*
@@ -778,7 +835,7 @@ time_t time2posix_z(timezone_t, time_t) ATTRIBUTE_PURE;
 #if HAVE_INCOMPATIBLE_CTIME_R
 #undef asctime_r
 #undef ctime_r
-char *asctime_r(struct tm const *, char *);
+char *asctime_r(struct tm const *__restrict, char *__restrict);
 char *ctime_r(time_t const *, char *);
 #endif
 
@@ -797,6 +854,19 @@ char *ctime_r(time_t const *, char *);
 #define SECSPERHOUR	(SECSPERMIN * MINSPERHOUR)
 #define SECSPERDAY	((int_fast32_t) SECSPERHOUR * HOURSPERDAY)
 #define MONSPERYEAR	12
+
+/* How many years to generate (in zic.c) or search through (in localtime.c).
+   This is two years larger than the obvious 400, to avoid edge cases.
+   E.g., suppose a rule applies from 2012 on with transitions
+   in March and September, plus one-off transitions in November 2013,
+   and suppose the rule cannot be expressed as a proleptic TZ string.
+   If zic looked only at the last 400 years, it would set max_year=2413,
+   with the intent that the 400 years 2014 through 2413 will be repeated.
+   The last transition listed in the tzfile would be in 2413-09,
+   less than 400 years after the last one-off transition in 2013-11.
+   Two years is not overkill for localtime.c, as a one-year bump
+   would mishandle 2023d's America/Ciudad_Juarez for November 2422.  */
+enum { years_of_observations = YEARSPERREPEAT + 2 };
 
 enum {
   TM_SUNDAY,
