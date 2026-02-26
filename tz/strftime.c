@@ -118,7 +118,7 @@ static char *_yconv(int, int, int, int, char *, const char *);
 #endif
 
 #if HAVE_STRFTIME_L
-size_t strftime_l(char *s, size_t maxsize, const char *format, const struct tm *t, locale_t locale)
+size_t strftime_l(char *__restrict s, size_t maxsize, const char *__restrict format, const struct tm *__restrict t, locale_t locale)
 {
 	/* Just call strftime, as only the C locale is supported.  */
 	(void) locale;
@@ -126,7 +126,7 @@ size_t strftime_l(char *s, size_t maxsize, const char *format, const struct tm *
 }
 #endif
 
-size_t strftime(char *s, size_t maxsize, const char *format, const struct tm *t)
+size_t strftime(char *__restrict s, size_t maxsize, const char *__restrict format, const struct tm *__restrict t)
 {
 	char *p;
 	int saved_errno = errno;
@@ -171,7 +171,12 @@ static char *_fmt(const char *format, const struct tm *t, char *pt, const char *
 		  label:
 			switch (*++format)
 			{
-			case '\0':
+			default:
+				/* Output unknown conversion specifiers as-is,
+				   to aid debugging.  This includes '%' at
+				   format end.  This conforms to C23 section
+				   7.29.3.5 paragraph 6, which says behavior
+				   is undefined here.  */
 				--format;
 				break;
 			case 'A':
@@ -307,11 +312,17 @@ static char *_fmt(const char *format, const struct tm *t, char *pt, const char *
 					tm.tm_mday = t->tm_mday;
 					tm.tm_mon = t->tm_mon;
 					tm.tm_year = t->tm_year;
+
+					/* Get the time_t value for TM.
+					   Native time_t, or its redefinition
+					   by localtime.c above, is wide enough
+					   so that this cannot overflow.  */
+#if defined TM_GMTOFF && STD_INSPIRED
+					mkt = timeoff(&tm, t->TM_GMTOFF);
+#else
 					tm.tm_isdst = t->tm_isdst;
-#if defined TM_GMTOFF && ! UNINIT_TRAP
-					tm.TM_GMTOFF = t->TM_GMTOFF;
-#endif
 					mkt = mktime(&tm);
+#endif
 					/* If mktime fails, %s expands to the
 					   value of (time_t) -1 as a failure
 					   marker; this is better in practice
@@ -558,12 +569,6 @@ static char *_fmt(const char *format, const struct tm *t, char *pt, const char *
 				pt = _fmt(Locale->date_fmt, t, pt, ptlim, warnp);
 				continue;
 			case '%':
-				/*
-				 ** X311J/88-090 (4.12.3.5): if conversion char is
-				 ** undefined, behavior is undefined. Print out the
-				 ** character itself as printf(3) also does.
-				 */
-			default:
 				break;
 			}
 		}

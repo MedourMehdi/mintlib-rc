@@ -172,6 +172,7 @@ static int is_alpha(char a)
 	}
 }
 
+__attribute__((__noreturn__))
 static void size_overflow(void)
 {
 	fprintf(stderr, _("%s: size overflow\n"), progname);
@@ -179,18 +180,16 @@ static void size_overflow(void)
 }
 
 /* Return A + B, exiting if the result would overflow either ptrdiff_t
-   or size_t.  */
+   or size_t.  A and B are both nonnegative.  */
 static ptrdiff_t sumsize(size_t a, size_t b)
 {
 #ifdef ckd_add
 	ptrdiff_t sum;
 
-	if (!ckd_add(&sum, a, b) && sum <= SIZE_MAX)
+	if (!ckd_add(&sum, a, b) && sum <= INDEX_MAX)
 		return sum;
 #else
-	ptrdiff_t sum_max = min(PTRDIFF_MAX, SIZE_MAX);
-
-	if (a <= sum_max && b <= sum_max - a)
+	if (a <= INDEX_MAX && b <= INDEX_MAX - a)
 		return a + b;
 #endif
 	size_overflow();
@@ -295,7 +294,8 @@ static timezone_t tzalloc(const char *val)
 #if HAVE_SETENV
 	if (setenv("TZ", val, 1) != 0)
 	{
-		perror("setenv");
+		char const *e = strerror(errno);
+		fprintf(stderr, _("%s: setenv: %s\n"), progname, e);
 		exit(EXIT_FAILURE);
 	}
 	tzset();
@@ -308,7 +308,7 @@ static timezone_t tzalloc(const char *val)
 	void *freeable = NULL;
 	char **env = fakeenv,
 		**initial_environ;
-	size_t valsize = strlen(val) + 1;
+	ptrdiff_t valsize = strlen(val) + 1;
 
 	if (fakeenv0size < valsize)
 	{
@@ -318,7 +318,7 @@ static timezone_t tzalloc(const char *val)
 
 		while (*e++)
 		{
-			if (initial_nenvptrs == min(PTRDIFF_MAX, SIZE_MAX) / sizeof *environ)
+			if (initial_nenvptrs == INDEX_MAX / sizeof *environ)
 				size_overflow();
 			initial_nenvptrs++;
 		}
@@ -362,7 +362,7 @@ static void gmtzinit(void)
 		   "Link GMT GMT0" line in the "backward" file, and which
 		   should work on all POSIX platforms.  The rest of zdump does not
 		   use the "GMT" abbreviation that comes from this setting, so it
-		   is OK to use "GMT" here rather than the more-modern "UTC" which
+		   is OK to use "GMT" here rather than the modern "UTC" which
 		   would not work on platforms that omit the "backward" file.  */
 		gmtz = tzalloc("GMT");
 		if (!gmtz)
@@ -372,7 +372,8 @@ static void gmtzinit(void)
 			gmtz = tzalloc(gmt0);
 			if (!gmtz)
 			{
-				perror(gmt0);
+				char const *e = strerror(errno);
+				fprintf(stderr, _("%s: unknown timezone '%s': %s\n"), progname, gmt0, e);
 				exit(EXIT_FAILURE);
 			}
 		}
@@ -449,7 +450,7 @@ static void abbrok(const char *const abbrp, const char *const zone)
 
 /* Return a time zone abbreviation.  If the abbreviation needs to be
    saved, use *BUF (of size *BUFALLOC) to save it, and return the
-   abbreviation in the possibly-reallocated *BUF.  Otherwise, just
+   abbreviation in the possibly reallocated *BUF.  Otherwise, just
    return the abbreviation.  Get the abbreviation from TMP.
    Exit on memory allocation failure.  */
 static const char *saveabbr(char **buf, ptrdiff_t *bufalloc, const struct tm *tmp)
@@ -461,15 +462,15 @@ static const char *saveabbr(char **buf, ptrdiff_t *bufalloc, const struct tm *tm
 		return ab;
 	} else
 	{
-		size_t ablen = strlen(ab);
+	    ptrdiff_t absize = strlen(ab) + 1;
 
-		if (*bufalloc <= ablen)
-		{
+	    if (*bufalloc < absize)
+	    {
 			free(*buf);
 
 			/* Make the new buffer at least twice as long as the old,
 			   to avoid O(N**2) behavior on repeated calls.  */
-			*bufalloc = sumsize(*bufalloc, ablen + 1);
+			*bufalloc = sumsize(*bufalloc, absize);
 
 			*buf = xmalloc(*bufalloc);
 		}
@@ -521,6 +522,7 @@ int main(int argc, char *argv[])
 	time_t cuthitime;
 	time_t now;
 	int iflag = FALSE;
+	size_t arglenmax = 0;
 
 	cutlotime = absolute_min_time;
 	cuthitime = absolute_max_time;
@@ -646,18 +648,23 @@ int main(int argc, char *argv[])
 	INITIALIZE(now);
 	if (!(iflag | vflag | Vflag))
 		now = time(NULL);
-	longest = 0;
 	for (i = optind; i < argc; i++)
 	{
 		size_t arglen = strlen(argv[i]);
 
-		if (longest < arglen)
-			longest = min(arglen, INT_MAX);
+		if (arglenmax < arglen)
+			arglenmax = arglen;
 	}
+	if (INDEX_MAX <= arglenmax)
+		size_overflow();
+	longest = min(arglenmax, INT_MAX - 2);
 
 	for (i = optind; i < argc; ++i)
 	{
-		timezone_t tz = tzalloc(argv[i]);
+		/* Treat "-" as standard input on platforms with /dev/stdin.
+		   It's not worth the bother of supporting "-" on other
+		   platforms, as that would need temp files.  */
+		timezone_t tz = tzalloc(strcmp(argv[i], "-") == 0 ? "/dev/stdin" : argv[i]);
 		const char *ab;
 		time_t t;
 		struct tm tm, newtm;
@@ -665,7 +672,8 @@ int main(int argc, char *argv[])
 
 		if (tz == NULL)
 		{
-			perror(argv[i]);
+			char const *e = strerror(errno);
+			fprintf(stderr, _("%s: unknown timezone '%s': %s\n"), progname, argv[i], e);
 			return EXIT_FAILURE;
 		}
 		if (!(iflag | vflag | Vflag))
@@ -832,7 +840,8 @@ static time_t hunt(timezone_t tz, time_t lot, time_t hit, int only_ok)
 		   Avoid overflow, even on oddball C89 platforms
 		   where / rounds down and TIME_T_MIN == -TIME_T_MAX
 		   so lot / 2 + hit / 2 might overflow.  */
-		time_t t = (lot / 2 - ((lot % 2 + hit % 2) < 0) + ((lot % 2 + hit % 2) == 2) + hit / 2);
+		int rem_sum = lot % 2 + hit % 2;
+		time_t t = (rem_sum == 2) - (rem_sum < 0) + lot / 2 + hit / 2;
 
 		if (t == lot)
 			break;
@@ -1019,13 +1028,12 @@ static void showextrema(timezone_t tz, char *zone, time_t lo, struct tm *lotmp, 
 	}
 }
 
-#if HAVE_SNPRINTF
-#define my_snprintf snprintf
-#else
+#if !HAVE_SNPRINTF
 #include <stdarg.h>
 
 /* A substitute for snprintf that is good enough for zdump.  */
-static int ATTRIBUTE_FORMAT((printf, 3, 4)) my_snprintf(char *s, size_t size, const char *format, ...)
+ATTRIBUTE_FORMAT((printf, 3, 4))
+static int my_snprintf(char *s, size_t size, const char *format, ...)
 {
 	int n;
 	va_list args;
@@ -1057,6 +1065,7 @@ static int ATTRIBUTE_FORMAT((printf, 3, 4)) my_snprintf(char *s, size_t size, co
 	va_end(args);
 	return n;
 }
+#define snprintf my_snprintf
 #endif
 
 /* Store into BUF, of size SIZE, a formatted local time taken from *TM.
@@ -1073,8 +1082,8 @@ static int format_local_time(char *buf, ptrdiff_t size, const struct tm *tm)
 	int hh = tm->tm_hour;
 
 	return (ss
-			? my_snprintf(buf, size, "%02d:%02d:%02d", hh, mm, ss)
-			: mm ? my_snprintf(buf, size, "%02d:%02d", hh, mm) : my_snprintf(buf, size, "%02d", hh));
+			? snprintf(buf, size, "%02d:%02d:%02d", hh, mm, ss)
+			: mm ? snprintf(buf, size, "%02d:%02d", hh, mm) : snprintf(buf, size, "%02d", hh));
 }
 
 /* Store into BUF, of size SIZE, a formatted UT offset for the
@@ -1106,8 +1115,8 @@ static int format_utc_offset(char *buf, ptrdiff_t size, const struct tm *tm, tim
 	mm = off / 60 % 60;
 	hh = off / 60 / 60;
 	return (ss || 100 <= hh
-			? my_snprintf(buf, size, "%c%02ld%02d%02d", sign, hh, mm, ss)
-			: mm ? my_snprintf(buf, size, "%c%02ld%02d", sign, hh, mm) : my_snprintf(buf, size, "%c%02ld", sign, hh));
+			? snprintf(buf, size, "%c%02ld%02d%02d", sign, hh, mm, ss)
+			: mm ? snprintf(buf, size, "%c%02ld%02d", sign, hh, mm) : snprintf(buf, size, "%c%02ld", sign, hh));
 }
 
 /* Store into BUF (of size SIZE) a quoted string representation of P.
@@ -1234,12 +1243,12 @@ static int istrftime(char *buf, ptrdiff_t size, const char *time_fmt,
 						*b++ = '\t', s--;
 						for (abp = ab; is_alpha(*abp); abp++)
 							continue;
-						len = !*abp && *ab ? (size_t)my_snprintf(b, s, "%s", ab) : format_quoted_string(b, s, ab);
+						len = !*abp && *ab ? (size_t)snprintf(b, s, "%s", ab) : format_quoted_string(b, s, ab);
 						if (s <= len)
 							return FALSE;
 						b += len, s -= len;
 					}
-					formatted_len = (tm->tm_isdst ? my_snprintf(b, s, &"\t\t%d"[show_abbr], tm->tm_isdst) : 0);
+					formatted_len = (tm->tm_isdst ? snprintf(b, s, &"\t\t%d"[show_abbr], tm->tm_isdst) : 0);
 				}
 				break;
 			}
@@ -1297,7 +1306,7 @@ static const char *abbr(const struct tm *tmp)
 
 static const char *tformat(void)
 {
-#if HAVE_GENERIC
+#if HAVE__GENERIC
 	/* C11-style _Generic is more likely to return the correct
 	   format when distinct types have the same size.  */
 	char const *fmt = _Generic(+(time_t) 0,
