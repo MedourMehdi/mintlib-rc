@@ -71,7 +71,7 @@ __sleep (unsigned int n)
 		if (__mint_is_multithreaded) {
 			if(pthread_self() > 0){
 				/* Use pthread sleep for multithreaded environment */
-				return msleep(n * 1000) == 0 ? 0 : n;
+				return __msleep(n * 1000) == 0 ? 0 : n;
 			} 
 			// else {
 			// 	return usleep(n * 1000 * 1000) ? 0 : n; /* Use usleep for main thread */

@@ -2,15 +2,23 @@
 #include "pthread_priv.h"
 #include <errno.h>
 
-int pthread_barrier_init(pthread_barrier_t *barrier, 
-                        const pthread_barrierattr_t *attr,
-                        unsigned int count)
+/* =========================== */
+/*     pthread_barrier_init    */
+/* =========================== */
+
+__typeof__(pthread_barrier_init) __pthread_barrier_init;
+
+int __pthread_barrier_init(pthread_barrier_t *barrier, 
+                           const pthread_barrierattr_t *attr,
+                           unsigned int count)
 {
     int result;
 
     (void)attr; // Attributes not currently used
     if (!barrier || count == 0) return EINVAL;
     
+    /* Note: Ideally use __pthread_mutex_init if available, 
+       but pthread_mutex_init works too. */
     result = pthread_mutex_init(&barrier->mutex, NULL);
     if (result != 0) return result;
     
@@ -25,8 +33,16 @@ int pthread_barrier_init(pthread_barrier_t *barrier,
     barrier->generation = 0;
     return 0;
 }
+weak_alias (__pthread_barrier_init, pthread_barrier_init)
 
-int pthread_barrier_destroy(pthread_barrier_t *barrier)
+
+/* =========================== */
+/*   pthread_barrier_destroy   */
+/* =========================== */
+
+__typeof__(pthread_barrier_destroy) __pthread_barrier_destroy;
+
+int __pthread_barrier_destroy(pthread_barrier_t *barrier)
 {
     int result;
 
@@ -45,8 +61,16 @@ int pthread_barrier_destroy(pthread_barrier_t *barrier)
     pthread_cond_destroy(&barrier->cond);
     return 0;
 }
+weak_alias (__pthread_barrier_destroy, pthread_barrier_destroy)
 
-int pthread_barrier_wait(pthread_barrier_t *barrier)
+
+/* =========================== */
+/*    pthread_barrier_wait     */
+/* =========================== */
+
+__typeof__(pthread_barrier_wait) __pthread_barrier_wait;
+
+int __pthread_barrier_wait(pthread_barrier_t *barrier)
 {
     int result;
     unsigned int gen;
@@ -79,3 +103,4 @@ int pthread_barrier_wait(pthread_barrier_t *barrier)
     pthread_mutex_unlock(&barrier->mutex);
     return 0;
 }
+weak_alias (__pthread_barrier_wait, pthread_barrier_wait)

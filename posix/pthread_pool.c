@@ -1,25 +1,30 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-static void *thread_pool_worker(void *arg) {
+/* =========================== */
+/*   thread_pool_worker (internal) */
+/* =========================== */
+
+static void *thread_pool_worker(void *arg) 
+{
     thread_pool_task_t *task = NULL;
     thread_pool_t *pool = (thread_pool_t *)arg;
     
     while (1) {
         pthread_mutex_lock(&pool->lock);
         
-        // Wait for tasks or shutdown
+        /* Wait for tasks or shutdown */
         while (pool->queue_size == 0 && !pool->shutdown) {
             pthread_cond_wait(&pool->notify, &pool->lock);
         }
         
-        // Exit on shutdown
+        /* Exit on shutdown */
         if (pool->shutdown) {
             pthread_mutex_unlock(&pool->lock);
             pthread_exit(NULL);
         }
         
-        // Get next task
+        /* Get next task */
         task = pool->queue;
         if (task) {
             pool->queue = task->next;
@@ -28,7 +33,7 @@ static void *thread_pool_worker(void *arg) {
         
         pthread_mutex_unlock(&pool->lock);
         
-        // Execute task
+        /* Execute task */
         if (task) {
             task->function(task->argument);
             free(task);
@@ -37,7 +42,59 @@ static void *thread_pool_worker(void *arg) {
     return NULL;
 }
 
-thread_pool_t *thread_pool_create(int thread_count) {
+/* =========================== */
+/*   thread_pool_destroy       */
+/* =========================== */
+
+__typeof__(thread_pool_destroy) __thread_pool_destroy;
+
+int __thread_pool_destroy(thread_pool_t *pool, int graceful) 
+{
+    thread_pool_task_t *task = NULL;
+    int i;
+
+    if (!pool) return -1;
+    
+    pthread_mutex_lock(&pool->lock);
+    pool->shutdown = 1;
+    pthread_cond_broadcast(&pool->notify);
+    pthread_mutex_unlock(&pool->lock);
+    
+    /* Wait for threads to finish */
+    for (i = 0; i < pool->thread_count; i++) {
+        pthread_join(pool->threads[i], NULL);
+    }
+    
+    /* Cleanup */
+    pthread_mutex_destroy(&pool->lock);
+    pthread_cond_destroy(&pool->notify);
+    
+    /* Process remaining tasks */
+    task = pool->queue;
+    while (task) {
+        thread_pool_task_t *next = task->next;
+        if (graceful) {
+            task->function(task->argument);
+        }
+        free(task);
+        task = next;
+    }
+    
+    free(pool->threads);
+    free(pool);
+    return 0;
+}
+weak_alias (__thread_pool_destroy, thread_pool_destroy)
+
+
+/* =========================== */
+/*   thread_pool_create        */
+/* =========================== */
+
+__typeof__(thread_pool_create) __thread_pool_create;
+
+thread_pool_t *__thread_pool_create(int thread_count) 
+{
     thread_pool_t *pool = NULL;
     int i;
 
@@ -46,7 +103,7 @@ thread_pool_t *thread_pool_create(int thread_count) {
     pool = malloc(sizeof(thread_pool_t));
     if (!pool) return NULL;
     
-    // Initialize pool
+    /* Initialize pool */
     pool->threads = malloc(sizeof(pthread_t) * thread_count);
     if (!pool->threads) {
         free(pool);
@@ -62,10 +119,11 @@ thread_pool_t *thread_pool_create(int thread_count) {
     pool->shutdown = 0;
     pool->started = 0;
     
-    // Create worker threads
+    /* Create worker threads */
     for (i = 0; i < thread_count; i++) {
         if (pthread_create(&pool->threads[i], NULL, thread_pool_worker, pool) != 0) {
-            thread_pool_destroy(pool, 1);
+            /* __thread_pool_destroy is now defined above, so this call is valid */
+            __thread_pool_destroy(pool, 1);
             return NULL;
         }
         pool->started++;
@@ -73,8 +131,17 @@ thread_pool_t *thread_pool_create(int thread_count) {
     
     return pool;
 }
+weak_alias (__thread_pool_create, thread_pool_create)
 
-int thread_pool_add(thread_pool_t *pool, void (*function)(void *), void *argument) {
+
+/* =========================== */
+/*     thread_pool_add         */
+/* =========================== */
+
+__typeof__(thread_pool_add) __thread_pool_add;
+
+int __thread_pool_add(thread_pool_t *pool, void (*function)(void *), void *argument) 
+{
     thread_pool_task_t *task = NULL;
     if (!pool || !function) return -1;
     
@@ -87,7 +154,7 @@ int thread_pool_add(thread_pool_t *pool, void (*function)(void *), void *argumen
     
     pthread_mutex_lock(&pool->lock);
     
-    // Add to queue
+    /* Add to queue */
     if (!pool->queue) {
         pool->queue = task;
     } else {
@@ -102,39 +169,4 @@ int thread_pool_add(thread_pool_t *pool, void (*function)(void *), void *argumen
     
     return 0;
 }
-
-int thread_pool_destroy(thread_pool_t *pool, int graceful) {
-    thread_pool_task_t *task = NULL;
-    int i;
-
-    if (!pool) return -1;
-    
-    pthread_mutex_lock(&pool->lock);
-    pool->shutdown = 1;
-    pthread_cond_broadcast(&pool->notify);
-    pthread_mutex_unlock(&pool->lock);
-    
-    // Wait for threads to finish
-    for (i = 0; i < pool->thread_count; i++) {
-        pthread_join(pool->threads[i], NULL);
-    }
-    
-    // Cleanup
-    pthread_mutex_destroy(&pool->lock);
-    pthread_cond_destroy(&pool->notify);
-    
-    // Process remaining tasks
-    task = pool->queue;
-    while (task) {
-        thread_pool_task_t *next = task->next;
-        if (graceful) {
-            task->function(task->argument);
-        }
-        free(task);
-        task = next;
-    }
-    
-    free(pool->threads);
-    free(pool);
-    return 0;
-}
+weak_alias (__thread_pool_add, thread_pool_add)

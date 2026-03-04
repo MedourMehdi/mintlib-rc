@@ -17,33 +17,57 @@
    License along with the GNU C Library; if not, see
    <https://www.gnu.org/licenses/>.  */
 
-#include <errno.h>
+/*
+ * sigwaitinfo() - wait for queued signals
+ *
+ * This file is part of the MiNTLib project.
+ */
+
 #include <signal.h>
-#include <stddef.h>
-#include "pthread.h"
+#include <errno.h>
+#include <string.h>
+#include <sys/types.h>
+
 #include "posix/pthread_priv.h"
 
-__typeof__(sigwait) __sigwait;
+/* =========================== */
+/*      sigwaitinfo           */
+/* =========================== */
 
-int __sigwait(const sigset_t *set, int *sig)
+__typeof__(sigwaitinfo) __sigwaitinfo;
+
+/**
+ * sigwaitinfo - wait for queued signals
+ * @set: set of signals to wait for
+ * @info: buffer to receive signal information
+ *
+ * Returns: signal number on success, -1 on error (errno set)
+ */
+int 
+__sigwaitinfo(__const sigset_t *set, siginfo_t *info)
 {
-    int result;
+    long ret;
     
-    if (!set || !sig) {
+    /* Validate parameters */
+    if (!set) {
         __set_errno(EINVAL);
         return -1;
     }
     
-    /* Use sigwaitinfo which is already thread-aware in your kernel */
-    result = sigwaitinfo(set, NULL);
+    /* Clear info structure if provided */
+    if (info) {
+        memset(info, 0, sizeof(siginfo_t));
+    }
     
-    if (result < 0) {
-        /* errno already set by sigwaitinfo */
+    /* Use the pthread signal syscall wrapper */
+    ret = proc_thread_signal(PTSIG_WAITINFO, (long)set, (long)info);
+    
+    if (ret < 0) {
+        __set_errno((int)-ret);
         return -1;
     }
     
-    *sig = result;
-    return 0;
+    /* ret contains the signal number */
+    return (int)ret;
 }
-
-weak_alias(__sigwait, sigwait)
+weak_alias (__sigwaitinfo, sigwaitinfo)

@@ -27,12 +27,19 @@
         } \
     } while(0)
 
+
+/* =========================== */
+/*     pthread_sigmask         */
+/* =========================== */
+
+__typeof__(pthread_sigmask) __pthread_sigmask;
+
 /* 
  * pthread_sigmask - Thread-specific signal mask management
  * In classic mode: delegates to Psigsetmask/Psigblock (unchanged)
  * In threaded mode: uses per-thread signal masks
  */
-int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset)
+int __pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset)
 {
     PTHREAD_SIGNAL_MODE_SWITCH(
         /* THREADED PATH: Use kernel's thread-specific signal masks */
@@ -68,13 +75,21 @@ int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset)
         }
     );
 }
+weak_alias (__pthread_sigmask, pthread_sigmask)
+
+
+/* =========================== */
+/*       pthread_kill          */
+/* =========================== */
+
+__typeof__(pthread_kill) __pthread_kill;
 
 /* 
  * pthread_kill - Send signal to specific thread or process
  * In classic mode: Treats thread ID as process ID for compatibility
  * In threaded mode: Delivers to specific thread within process
  */
-int pthread_kill(pthread_t thread, int sig)
+int __pthread_kill(pthread_t thread, int sig)
 {
     int result;
     
@@ -94,13 +109,21 @@ int pthread_kill(pthread_t thread, int sig)
     
     return result;
 }
+weak_alias (__pthread_kill, pthread_kill)
+
+
+/* =========================== */
+/*     pthread_sigwait         */
+/* =========================== */
+
+__typeof__(pthread_sigwait) __pthread_sigwait;
 
 /* 
  * pthread_sigwait - Synchronously wait for signals (blocking)
  * In classic mode: Uses standard sigwait() implementation (from sigwait.c)
  * In threaded mode: Thread-aware blocking wait
  */
-int pthread_sigwait(const sigset_t *set, int *sig)
+int __pthread_sigwait(const sigset_t *set, int *sig)
 {
     if (!set || !sig) return EINVAL;
     
@@ -121,13 +144,21 @@ int pthread_sigwait(const sigset_t *set, int *sig)
         }
     );
 }
+weak_alias (__pthread_sigwait, pthread_sigwait)
+
+
+/* =========================== */
+/*  pthread_sigtimedwait       */
+/* =========================== */
+
+__typeof__(pthread_sigtimedwait) __pthread_sigtimedwait;
 
 /* 
  * pthread_sigtimedwait - Wait for signals with timeout
  * In classic mode: Uses standard sigtimedwait() (from sigtimedwait.c)
  * In threaded mode: Thread-aware timed wait
  */
-int pthread_sigtimedwait(const sigset_t *set, int *sig, long timeout)
+int __pthread_sigtimedwait(const sigset_t *set, int *sig, long timeout)
 {
     if (!set || !sig) return EINVAL;
     
@@ -159,13 +190,21 @@ int pthread_sigtimedwait(const sigset_t *set, int *sig, long timeout)
         }
     );
 }
+weak_alias (__pthread_sigtimedwait, pthread_sigtimedwait)
+
+
+/* =========================== */
+/*    pthread_kill_all         */
+/* =========================== */
+
+__typeof__(pthread_kill_all) __pthread_kill_all;
 
 /* 
  * pthread_kill_all - Broadcast signal to all threads in process
  * WARNING: Non-standard MiNT extension
  * In classic mode: Sends signal to entire process group (similar effect)
  */
-int pthread_kill_all(int sig)
+int __pthread_kill_all(int sig)
 {
     PTHREAD_SIGNAL_MODE_SWITCH(
         /* THREADED PATH: Broadcast to all threads */
@@ -181,13 +220,21 @@ int pthread_kill_all(int sig)
         }
     );
 }
+weak_alias (__pthread_kill_all, pthread_kill_all)
+
+
+/* =========================== */
+/*   pthread_sigpending        */
+/* =========================== */
+
+__typeof__(pthread_sigpending) __pthread_sigpending;
 
 /* 
  * pthread_sigpending - Get pending signals for current thread/process
  * WARNING: Non-standard extension (POSIX sigpending() is process-level only)
  * In classic mode: Uses standard sigpending()
  */
-int pthread_sigpending(sigset_t *set)
+int __pthread_sigpending(sigset_t *set)
 {
     if (!set) return EINVAL;
     
@@ -205,39 +252,55 @@ int pthread_sigpending(sigset_t *set)
         }
     );
 }
+weak_alias (__pthread_sigpending, pthread_sigpending)
+
+
+/* =========================== */
+/*    pthread_sigqueue         */
+/* =========================== */
+
+__typeof__(pthread_sigqueue) __pthread_sigqueue;
 
 /* 
  * pthread_sigqueue - Queue signal with data to specific thread
  * WARNING: Non-standard extension (POSIX sigqueue() is process-level only)
  * In classic mode: Uses standard sigqueue() (ignores thread ID)
  */
-int pthread_sigqueue(pthread_t thread, int sig, const union sigval value)
+int __pthread_sigqueue(pthread_t thread, int sig, const union sigval value)
 {
-        if (__mint_is_multithreaded) {
-            /* THREADED PATH: Queue to specific thread */
+    if (__mint_is_multithreaded) {
+        /* THREADED PATH: Queue to specific thread */
+    
+        struct {
+            pthread_t thread;
+            int sig;
+            union sigval value;
+        } args = { thread, sig, value };
         
-            struct {
-                pthread_t thread;
-                int sig;
-                union sigval value;
-            } args = { thread, sig, value };
-            
-            long ret = proc_thread_signal(PTSIG_QUEUE, (long)&args, 0);
-            return (ret < 0) ? -ret : ret;
-        } else {
-            /* CLASSIC PATH: Use standard sigqueue() (unchanged) */
-            /* In classic mode, thread parameter is treated as process ID */
-            long ret = sigqueue((pid_t)thread, sig, value);
-            return (ret < 0) ? -ret : ret;
-        }
+        long ret = proc_thread_signal(PTSIG_QUEUE, (long)&args, 0);
+        return (ret < 0) ? -ret : ret;
+    } else {
+        /* CLASSIC PATH: Use standard sigqueue() (unchanged) */
+        /* In classic mode, thread parameter is treated as process ID */
+        long ret = sigqueue((pid_t)thread, sig, value);
+        return (ret < 0) ? -ret : ret;
+    }
 }
+weak_alias (__pthread_sigqueue, pthread_sigqueue)
+
+
+/* =========================== */
+/*    pthread_sigpause         */
+/* =========================== */
+
+__typeof__(pthread_sigpause) __pthread_sigpause;
 
 /* 
  * pthread_sigpause - Atomically set mask and pause until signal
  * WARNING: Non-standard MiNT extension
  * In classic mode: Uses Psigsetmask() + Pause()
  */
-int pthread_sigpause(unsigned long mask)
+int __pthread_sigpause(unsigned long mask)
 {
     PTHREAD_SIGNAL_MODE_SWITCH(
         /* THREADED PATH: Thread-aware pause */
@@ -255,3 +318,4 @@ int pthread_sigpause(unsigned long mask)
         }
     );
 }
+weak_alias (__pthread_sigpause, pthread_sigpause)

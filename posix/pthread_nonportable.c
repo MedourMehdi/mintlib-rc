@@ -5,7 +5,14 @@
 
 #include "pthread_priv.h"
 
-int pthread_setname_np(pthread_t thread, const char *name) {
+/* =========================== */
+/*    pthread_setname_np       */
+/* =========================== */
+
+__typeof__(pthread_setname_np) __pthread_setname_np;
+
+int __pthread_setname_np(pthread_t thread, const char *name) 
+{
     long result;
     size_t len = 0;
     if (!name) return EINVAL;
@@ -17,8 +24,17 @@ int pthread_setname_np(pthread_t thread, const char *name) {
     result = sys_p_thread_ctrl(THREAD_CTRL_SETNAME, thread, (long)name);
     return (result < 0) ? -result : 0;
 }
+weak_alias (__pthread_setname_np, pthread_setname_np)
 
-int pthread_getname_np(pthread_t thread, char *name, size_t len) {
+
+/* =========================== */
+/*    pthread_getname_np       */
+/* =========================== */
+
+__typeof__(pthread_getname_np) __pthread_getname_np;
+
+int __pthread_getname_np(pthread_t thread, char *name, size_t len) 
+{
     long result;
     if (!name || len == 0) return EINVAL;
     if (len < 16) return ERANGE;  // Need space for 15 chars + null
@@ -26,30 +42,65 @@ int pthread_getname_np(pthread_t thread, char *name, size_t len) {
     result = sys_p_thread_ctrl(THREAD_CTRL_GETNAME, thread, (long)name);
     return (result < 0) ? -result : 0;
 }
+weak_alias (__pthread_getname_np, pthread_getname_np)
 
-int pthread_is_initialthread_np(void) {
+
+/* =========================== */
+/* pthread_is_initialthread_np */
+/* =========================== */
+
+__typeof__(pthread_is_initialthread_np) __pthread_is_initialthread_np;
+
+int __pthread_is_initialthread_np(void) 
+{
     long result = sys_p_thread_ctrl(THREAD_CTRL_IS_INITIAL, 0, 0);
     return (result != 0);
 }
+weak_alias (__pthread_is_initialthread_np, pthread_is_initialthread_np)
 
-int pthread_is_multithreaded_np(void) {
+
+/* =========================== */
+/* pthread_is_multithreaded_np */
+/* =========================== */
+
+__typeof__(pthread_is_multithreaded_np) __pthread_is_multithreaded_np;
+
+int __pthread_is_multithreaded_np(void) 
+{
     long result = sys_p_thread_ctrl(THREAD_CTRL_IS_MULTITHREADED, 0, 0);
     return (result != 0);
 }
+weak_alias (__pthread_is_multithreaded_np, pthread_is_multithreaded_np)
 
-int msleep(long ms) {
+
+/* =========================== */
+/*          msleep             */
+/* =========================== */
+
+__typeof__(msleep) __msleep;
+
+int __msleep(long ms) 
+{
     if ( __mint_is_multithreaded && ((long)sys_p_thread_ctrl(THREAD_CTRL_GETID, 0, 0)) > 0) {
         long result = sys_p_thread_sync(THREAD_SYNC_SLEEP, ms, 0);
         return (result < 0) ? -result : 0;
     }
     return usleep(ms * 1000);
 }
+weak_alias (__msleep, msleep)
+
+
+/* =========================== */
+/*    pthread_tryjoin_np       */
+/* =========================== */
+
+__typeof__(pthread_tryjoin_np) __pthread_tryjoin_np;
 
 /*
  * pthread_tryjoin_np - attempt to join with a thread without blocking
  * Non-portable extension for MiNT pthread implementation
  */
-int pthread_tryjoin_np(pthread_t thread, void **retval)
+int __pthread_tryjoin_np(pthread_t thread, void **retval)
 {
     long result = 1;
     while (result != 0) {
@@ -59,9 +110,19 @@ int pthread_tryjoin_np(pthread_t thread, void **retval)
     }
     return 0; // Successfully joined
 }
+weak_alias (__pthread_tryjoin_np, pthread_tryjoin_np)
 
-int pthread_setup_threading_np(void) {
+
+/* =========================== */
+/* pthread_setup_threading_np  */
+/* =========================== */
+
+__typeof__(pthread_setup_threading_np) __pthread_setup_threading_np;
+
+int __pthread_setup_threading_np(void) 
+{
     long result = sys_p_thread_ctrl(THREAD_CTRL_SETUP_THREADING, 0, 0);
     __mint_is_multithreaded = 1;
     return (result < 0) ? -result : 0;
 }
+weak_alias (__pthread_setup_threading_np, pthread_setup_threading_np)

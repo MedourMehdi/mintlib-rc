@@ -5,8 +5,14 @@
 
 short __mint_is_multithreaded = 0;
 
-int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
-                   void *(*start_routine)(void*), void *arg)
+/* =========================== */
+/*      pthread_create         */
+/* =========================== */
+
+__typeof__(pthread_create) __pthread_create;
+
+int __pthread_create(pthread_t *thread, const pthread_attr_t *attr,
+                     void *(*start_routine)(void*), void *arg)
 {
     long tid;
     
@@ -28,8 +34,16 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
     *thread = (pthread_t)tid;
     return 0;
 }
+weak_alias (__pthread_create, pthread_create)
 
-void pthread_exit(void *retval)
+
+/* =========================== */
+/*       pthread_exit          */
+/* =========================== */
+
+__typeof__(pthread_exit) __pthread_exit;
+
+void __pthread_exit(void *retval)
 {
     int *errno_ptr;
     
@@ -46,8 +60,16 @@ void pthread_exit(void *retval)
     sys_p_thread_ctrl(THREAD_CTRL_EXIT, (long)retval, 0);
     while(1); // Never returns
 }
+weak_alias (__pthread_exit, pthread_exit)
 
-int pthread_join(pthread_t thread, void **retval)
+
+/* =========================== */
+/*       pthread_join          */
+/* =========================== */
+
+__typeof__(pthread_join) __pthread_join;
+
+int __pthread_join(pthread_t thread, void **retval)
 {
     long result = sys_p_thread_sync(THREAD_SYNC_JOIN, thread, (long)retval);
     if (result < 0) {
@@ -60,8 +82,16 @@ int pthread_join(pthread_t thread, void **retval)
     }
     return 0;
 }
+weak_alias (__pthread_join, pthread_join)
 
-int pthread_detach(pthread_t thread)
+
+/* =========================== */
+/*      pthread_detach         */
+/* =========================== */
+
+__typeof__(pthread_detach) __pthread_detach;
+
+int __pthread_detach(pthread_t thread)
 {
     long result = sys_p_thread_ctrl(THREAD_SYNC_DETACH, thread, 0);
     if (result < 0) {
@@ -73,8 +103,16 @@ int pthread_detach(pthread_t thread)
     }
     return 0;
 }
+weak_alias (__pthread_detach, pthread_detach)
 
-pthread_t pthread_self(void)
+
+/* =========================== */
+/*       pthread_self          */
+/* =========================== */
+
+__typeof__(pthread_self) __pthread_self;
+
+pthread_t __pthread_self(void)
 {
     if (__mint_is_multithreaded) {
         return (pthread_t)sys_p_thread_ctrl(THREAD_CTRL_GETID, 0, 0);
@@ -82,13 +120,32 @@ pthread_t pthread_self(void)
         return (pthread_t)NULL;
     }
 }
+weak_alias (__pthread_self, pthread_self)
 
-int pthread_equal(pthread_t t1, pthread_t t2)
+
+/* =========================== */
+/*      pthread_equal          */
+/* =========================== */
+
+/* Note: pthread_equal is often implemented as a macro in pthread.h */
+
+__typeof__(pthread_equal) __pthread_equal;
+
+int __pthread_equal(pthread_t t1, pthread_t t2)
 {
     return t1 == t2;
 }
+weak_alias (__pthread_equal, pthread_equal)
 
-int pthread_yield(void)
+
+/* =========================== */
+/*       pthread_yield         */
+/* =========================== */
+
+__typeof__(pthread_yield) __pthread_yield;
+
+int __pthread_yield(void)
 {
     return (int)sys_p_thread_sync(THREAD_SYNC_YIELD, 0, 0);
 }
+weak_alias (__pthread_yield, pthread_yield)

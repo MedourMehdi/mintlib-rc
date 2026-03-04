@@ -2,7 +2,13 @@
 #include <pthread.h>
 #include "pthread_priv.h"
 
-int pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr)
+/* =========================== */
+/*    pthread_cond_init        */
+/* =========================== */
+
+__typeof__(pthread_cond_init) __pthread_cond_init;
+
+int __pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr)
 {
     long result;
 
@@ -19,8 +25,16 @@ int pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr)
     if (result < 0) return -result;
     return 0;
 }
+weak_alias (__pthread_cond_init, pthread_cond_init)
 
-int pthread_cond_destroy(pthread_cond_t *cond)
+
+/* =========================== */
+/*   pthread_cond_destroy      */
+/* =========================== */
+
+__typeof__(pthread_cond_destroy) __pthread_cond_destroy;
+
+int __pthread_cond_destroy(pthread_cond_t *cond)
 {
     long result;
 
@@ -32,8 +46,16 @@ int pthread_cond_destroy(pthread_cond_t *cond)
     cond->destroyed = 1;
     return (result < 0) ? -result : 0;
 }
+weak_alias (__pthread_cond_destroy, pthread_cond_destroy)
 
-int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
+
+/* =========================== */
+/*    pthread_cond_wait        */
+/* =========================== */
+
+__typeof__(pthread_cond_wait) __pthread_cond_wait;
+
+int __pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
 {
     long result;
         
@@ -41,8 +63,16 @@ int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
     result = sys_p_thread_sync(THREAD_SYNC_COND_WAIT, (long)cond, (long)mutex);
     return (result < 0) ? -result : 0;
 }
+weak_alias (__pthread_cond_wait, pthread_cond_wait)
 
-int pthread_cond_signal(pthread_cond_t *cond)
+
+/* =========================== */
+/*   pthread_cond_signal       */
+/* =========================== */
+
+__typeof__(pthread_cond_signal) __pthread_cond_signal;
+
+int __pthread_cond_signal(pthread_cond_t *cond)
 {
     long result;
     
@@ -50,8 +80,16 @@ int pthread_cond_signal(pthread_cond_t *cond)
     result = sys_p_thread_sync(THREAD_SYNC_COND_SIGNAL, (long)cond, 0);
     return (result < 0) ? -result : 0;
 }
+weak_alias (__pthread_cond_signal, pthread_cond_signal)
 
-int pthread_cond_broadcast(pthread_cond_t *cond)
+
+/* =========================== */
+/* pthread_cond_broadcast      */
+/* =========================== */
+
+__typeof__(pthread_cond_broadcast) __pthread_cond_broadcast;
+
+int __pthread_cond_broadcast(pthread_cond_t *cond)
 {
     long result;
     
@@ -59,9 +97,17 @@ int pthread_cond_broadcast(pthread_cond_t *cond)
     result = sys_p_thread_sync(THREAD_SYNC_COND_BROADCAST, (long)cond, 0);
     return (result < 0) ? -result : 0;
 }
+weak_alias (__pthread_cond_broadcast, pthread_cond_broadcast)
 
-int pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex, 
-                          const struct timespec *abstime)
+
+/* =========================== */
+/* pthread_cond_timedwait      */
+/* =========================== */
+
+__typeof__(pthread_cond_timedwait) __pthread_cond_timedwait;
+
+int __pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex, 
+                             const struct timespec *abstime)
 {
     long result, ms;
     
@@ -75,17 +121,34 @@ int pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
     result = sys_p_thread_sync(THREAD_SYNC_COND_TIMEDWAIT, (long)cond, (long)mutex);
     return (result < 0) ? -result : 0;
 }
+weak_alias (__pthread_cond_timedwait, pthread_cond_timedwait)
 
-int pthread_condattr_init(pthread_condattr_t *attr)
+
+/* =========================== */
+/*   pthread_condattr_init     */
+/* =========================== */
+
+__typeof__(pthread_condattr_init) __pthread_condattr_init;
+
+int __pthread_condattr_init(pthread_condattr_t *attr)
 {
     if (!attr) return EINVAL;
     if (!__mint_is_multithreaded) pthread_setup_threading_np();
     attr->type = 0;
     return 0;
 }
+weak_alias (__pthread_condattr_init, pthread_condattr_init)
 
-int pthread_condattr_destroy(pthread_condattr_t *attr)
+
+/* =========================== */
+/*  pthread_condattr_destroy   */
+/* =========================== */
+
+__typeof__(pthread_condattr_destroy) __pthread_condattr_destroy;
+
+int __pthread_condattr_destroy(pthread_condattr_t *attr)
 {
     if (!attr) return EINVAL;
     return 0;
 }
+weak_alias (__pthread_condattr_destroy, pthread_condattr_destroy)

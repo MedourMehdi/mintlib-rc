@@ -31,7 +31,7 @@ typedef struct {
 
 /* Local structure to track shared memory handles */
 typedef struct {
-    pthread_spin_shm_t *shm_ptr;  /* Fixed: was pthread_spin_local_t */
+    pthread_spin_shm_t *shm_ptr;
     long file_handle;
     char *shm_path;
     short is_creator;
@@ -39,16 +39,22 @@ typedef struct {
 
 /* Structure for private spinlock */
 typedef struct {
-    volatile long lock;           // 32-bit for CAS or 16-bit for TAS
+    volatile long lock;
     long magic;
 } pthread_spin_private_t;
 
 #define PRIVATE_SPINLOCK_MAGIC 0x50535043  // "PSPC"
 
+/* =========================== */
+/*    pthread_spin_init        */
+/* =========================== */
+
+__typeof__(pthread_spin_init) __pthread_spin_init;
+
 /**
  * Initialize a spinlock
  */
-int pthread_spin_init(pthread_spinlock_t *lock, int pshared) {
+int __pthread_spin_init(pthread_spinlock_t *lock, int pshared) {
     if (!lock) return EINVAL;
     
     if (pshared == PTHREAD_PROCESS_PRIVATE) {
@@ -166,6 +172,12 @@ int pthread_spin_init(pthread_spinlock_t *lock, int pshared) {
     }
     return EINVAL;
 }
+weak_alias (__pthread_spin_init, pthread_spin_init)
+
+
+/* =========================== */
+/*   Helper: is_private_lock   */
+/* =========================== */
 
 /**
  * Helper function to identify lock type
@@ -175,10 +187,17 @@ static int is_private_lock(pthread_spinlock_t *lock) {
     return (private_lock && private_lock->magic == PRIVATE_SPINLOCK_MAGIC);
 }
 
+
+/* =========================== */
+/*   pthread_spin_destroy      */
+/* =========================== */
+
+__typeof__(pthread_spin_destroy) __pthread_spin_destroy;
+
 /**
  * Destroy a spinlock
  */
-int pthread_spin_destroy(pthread_spinlock_t *lock) {
+int __pthread_spin_destroy(pthread_spinlock_t *lock) {
     if (!lock || !*lock) return EINVAL;
     
     if (is_private_lock(lock)) {
@@ -228,9 +247,17 @@ int pthread_spin_destroy(pthread_spinlock_t *lock) {
         return 0;
     }
 }
+weak_alias (__pthread_spin_destroy, pthread_spin_destroy)
+
+
+/* =========================== */
+/*   pthread_spin_trylock      */
+/* =========================== */
+
+__typeof__(pthread_spin_trylock) __pthread_spin_trylock;
 
 // Trylock using kernel CAS
-int pthread_spin_trylock(pthread_spinlock_t *lock) {
+int __pthread_spin_trylock(pthread_spinlock_t *lock) {
     if (!lock || !*lock) return EINVAL;
     
     if (is_private_lock(lock)) {
@@ -248,6 +275,12 @@ int pthread_spin_trylock(pthread_spinlock_t *lock) {
         return EINVAL;
     }
 }
+weak_alias (__pthread_spin_trylock, pthread_spin_trylock)
+
+
+/* =========================== */
+/*   Helper: is_file_based_lock */
+/* =========================== */
 
 // Helper function to detect if this is a file-based shared lock
 static int is_file_based_lock(pthread_spinlock_t *lock) {
@@ -260,6 +293,11 @@ static int is_file_based_lock(pthread_spinlock_t *lock) {
     // If is_creator is 1, this was created via pthread_spin_init (true shared memory)
     return (local && !local->is_creator);
 }
+
+
+/* =========================== */
+/* Helper: sync_file_based_lock */
+/* =========================== */
 
 // Helper function to sync file-based shared memory
 static int sync_file_based_lock(pthread_spin_local_t *local, int write_back) {
@@ -274,8 +312,15 @@ static int sync_file_based_lock(pthread_spin_local_t *local, int write_back) {
     }
 }
 
+
+/* =========================== */
+/*    pthread_spin_lock        */
+/* =========================== */
+
+__typeof__(pthread_spin_lock) __pthread_spin_lock;
+
 // Modified lock function
-int pthread_spin_lock(pthread_spinlock_t *lock) {
+int __pthread_spin_lock(pthread_spinlock_t *lock) {
     if (!lock || !*lock) return EINVAL;
     
     if (is_private_lock(lock)) {
@@ -321,9 +366,17 @@ int pthread_spin_lock(pthread_spinlock_t *lock) {
         }
     }
 }
+weak_alias (__pthread_spin_lock, pthread_spin_lock)
+
+
+/* =========================== */
+/*   pthread_spin_unlock       */
+/* =========================== */
+
+__typeof__(pthread_spin_unlock) __pthread_spin_unlock;
 
 // Modified unlock function
-int pthread_spin_unlock(pthread_spinlock_t *lock) {
+int __pthread_spin_unlock(pthread_spinlock_t *lock) {
     if (!lock || !*lock) return EINVAL;
     
     if (is_private_lock(lock)) {
@@ -347,11 +400,19 @@ int pthread_spin_unlock(pthread_spinlock_t *lock) {
     }
     return 0;
 }
+weak_alias (__pthread_spin_unlock, pthread_spin_unlock)
+
+
+/* =========================== */
+/*   pthread_spin_attach       */
+/* =========================== */
+
+__typeof__(pthread_spin_attach) __pthread_spin_attach;
 
 /**
  * File-based implementation that doesn't rely on shared memory mapping
  */
-int pthread_spin_attach(pthread_spinlock_t *lock, const char *shm_path) {
+int __pthread_spin_attach(pthread_spinlock_t *lock, const char *shm_path) {
     pthread_spin_local_t *local = NULL;
     pthread_spin_shm_t *shm_mem = NULL;
     long file_handle;
@@ -432,3 +493,4 @@ int pthread_spin_attach(pthread_spinlock_t *lock, const char *shm_path) {
     *lock = (pthread_spinlock_t)local;
     return 0;
 }
+weak_alias (__pthread_spin_attach, pthread_spin_attach)

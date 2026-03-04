@@ -11,9 +11,15 @@
 #include "semaphore.h"
 #include "semaphore_priv.h"
 #include "pthread_priv.h"
+
 #ifndef INT32_MAX
 #define INT32_MAX 0x7fffffff
 #endif
+
+/* =========================== */
+/*   Helper: gen_sem_id        */
+/* =========================== */
+
 /* Generate a 4-character semaphore ID for FreeMiNT Psemaphore */
 static char *gen_sem_id(void) {
     static int counter = 0;
@@ -38,6 +44,10 @@ static char *gen_sem_id(void) {
     return sem_id;
 }
 
+/* =========================== */
+/*   Helper: name_to_sem_id    */
+/* =========================== */
+
 /* Convert 4-character name to int32_t ID for Psemaphore */
 int32_t name_to_sem_id(const char *name) {
     return ((int32_t)name[0] << 24) | 
@@ -45,6 +55,10 @@ int32_t name_to_sem_id(const char *name) {
            ((int32_t)name[2] << 8) | 
            (int32_t)name[3];
 }
+
+/* =========================== */
+/* Helper: sem_id_from_name    */
+/* =========================== */
 
 int32_t sem_id_from_name(const char *name) {
     char sem_id_chars[5] = {'\0'};
@@ -61,7 +75,7 @@ int32_t sem_id_from_name(const char *name) {
         size_t copy_len = (len > 4) ? 4 : len;
         memcpy(sem_id_chars, id_source, copy_len);
         /* Pad remaining positions with 'X' */
-        for (size_t i = copy_len; i < 4; i++) {
+        for (i = copy_len; i < 4; i++) {
             sem_id_chars[i] = 'X';
         }
     } else {
@@ -70,7 +84,7 @@ int32_t sem_id_from_name(const char *name) {
         
         sem_id_chars[0] = id_source[0];
         /* Simple hash function for remaining characters */
-        for (size_t i = 1; i < len; i++) {
+        for (i = 1; i < len; i++) {
             hash = hash * 31 + (unsigned char)id_source[i];
         }
         
@@ -92,7 +106,14 @@ int32_t sem_id_from_name(const char *name) {
     return name_to_sem_id(sem_id_chars);
 }
 
-int sem_init(sem_t *sem, int pshared, unsigned int value) {
+
+/* =========================== */
+/*       sem_init              */
+/* =========================== */
+
+__typeof__(sem_init) __sem_init;
+
+int __sem_init(sem_t *sem, int pshared, unsigned int value) {
     int32_t sem_id;
     int result;
 
@@ -148,8 +169,16 @@ int sem_init(sem_t *sem, int pshared, unsigned int value) {
 
     return 0;
 }
+weak_alias (__sem_init, sem_init)
 
-int sem_wait(sem_t *sem) {
+
+/* =========================== */
+/*       sem_wait              */
+/* =========================== */
+
+__typeof__(sem_wait) __sem_wait;
+
+int __sem_wait(sem_t *sem) {
     int result;
     /* Reset errno at the start of each call */
     errno = 0;
@@ -207,8 +236,16 @@ int sem_wait(sem_t *sem) {
 
     return 0;
 }
+weak_alias (__sem_wait, sem_wait)
 
-int sem_trywait(sem_t *sem) {
+
+/* =========================== */
+/*     sem_trywait            */
+/* =========================== */
+
+__typeof__(sem_trywait) __sem_trywait;
+
+int __sem_trywait(sem_t *sem) {
 
     errno = 0;
 
@@ -274,8 +311,16 @@ int sem_trywait(sem_t *sem) {
     }
     return 0;
 }
+weak_alias (__sem_trywait, sem_trywait)
 
-int sem_post(sem_t *sem) {
+
+/* =========================== */
+/*       sem_post              */
+/* =========================== */
+
+__typeof__(sem_post) __sem_post;
+
+int __sem_post(sem_t *sem) {
     if (!sem) {
         errno = EINVAL;
         return -1;
@@ -317,8 +362,16 @@ int sem_post(sem_t *sem) {
     }
     return 0;
 }
+weak_alias (__sem_post, sem_post)
 
-int sem_getvalue(sem_t *sem, int *sval) {
+
+/* =========================== */
+/*      sem_getvalue           */
+/* =========================== */
+
+__typeof__(sem_getvalue) __sem_getvalue;
+
+int __sem_getvalue(sem_t *sem, int *sval) {
     if (!sem || !sval) {
         errno = EINVAL;
         return -1;
@@ -327,8 +380,16 @@ int sem_getvalue(sem_t *sem, int *sval) {
     *sval = sem->count;
     return 0;
 }
+weak_alias (__sem_getvalue, sem_getvalue)
 
-int sem_destroy(sem_t *sem) {
+
+/* =========================== */
+/*      sem_destroy            */
+/* =========================== */
+
+__typeof__(sem_destroy) __sem_destroy;
+
+int __sem_destroy(sem_t *sem) {
     if (!sem) {
         errno = EINVAL;
         return -1;
@@ -366,6 +427,12 @@ int sem_destroy(sem_t *sem) {
 
     return 0;
 }
+weak_alias (__sem_destroy, sem_destroy)
+
+
+/* =========================== */
+/* Helper: timespec_to_timeout_ms */
+/* =========================== */
 
 /* Helper function to convert timespec to milliseconds timeout for Psemaphore */
 static int32_t timespec_to_timeout_ms(const struct timespec *abs_timeout) {
@@ -395,6 +462,11 @@ static int32_t timespec_to_timeout_ms(const struct timespec *abs_timeout) {
     
     return (int32_t)timeout_ms;
 }
+
+
+/* =========================== */
+/* Helper: timespec_to_timeout_ms_clock */
+/* =========================== */
 
 /* Helper function to convert timespec to milliseconds timeout for specific clock */
 static int32_t timespec_to_timeout_ms_clock(const struct timespec *abs_timeout, clockid_t clock_id) {
@@ -426,6 +498,11 @@ static int32_t timespec_to_timeout_ms_clock(const struct timespec *abs_timeout, 
     return (int32_t)timeout_ms;
 }
 
+
+/* =========================== */
+/* Helper: timeout_expired     */
+/* =========================== */
+
 /* Helper function to check if absolute timeout has expired */
 static int timeout_expired(const struct timespec *abs_timeout, clockid_t clock_id) {
     struct timespec current_time;
@@ -450,7 +527,14 @@ static int timeout_expired(const struct timespec *abs_timeout, clockid_t clock_i
     return 0;
 }
 
-int sem_timedwait(sem_t *sem, const struct timespec *abs_timeout) {
+
+/* =========================== */
+/*     sem_timedwait           */
+/* =========================== */
+
+__typeof__(sem_timedwait) __sem_timedwait;
+
+int __sem_timedwait(sem_t *sem, const struct timespec *abs_timeout) {
     int32_t timeout_ms;
     
     /* Reset errno at the start of each call */
@@ -499,8 +583,8 @@ int sem_timedwait(sem_t *sem, const struct timespec *abs_timeout) {
             }
             
             /* Semaphore not available, yield and sleep briefly */
-            // sys_p_thread_sync(THREAD_SYNC_YIELD, 0, 0);
-            msleep(POLL_INTERVAL_MS);
+            /* Use internal __msleep to avoid symbol interposition issues */
+            __msleep(POLL_INTERVAL_MS);
         }
         
         /* Timeout expired */
@@ -553,8 +637,16 @@ int sem_timedwait(sem_t *sem, const struct timespec *abs_timeout) {
     
     return 0;
 }
+weak_alias (__sem_timedwait, sem_timedwait)
 
-int sem_clockwait(sem_t *sem, clockid_t clock_id, const struct timespec *abs_timeout) {
+
+/* =========================== */
+/*     sem_clockwait           */
+/* =========================== */
+
+__typeof__(sem_clockwait) __sem_clockwait;
+
+int __sem_clockwait(sem_t *sem, clockid_t clock_id, const struct timespec *abs_timeout) {
     int32_t timeout_ms;
     
     /* Reset errno at the start of each call */
@@ -615,8 +707,8 @@ int sem_clockwait(sem_t *sem, clockid_t clock_id, const struct timespec *abs_tim
             }
             
             /* Semaphore not available, yield and sleep briefly */
-            // sys_p_thread_sync(THREAD_SYNC_YIELD, 0, 0);
-            msleep(POLL_INTERVAL_MS);
+            /* Use internal __msleep to avoid symbol interposition issues */
+            __msleep(POLL_INTERVAL_MS);
         }
         
         /* Timeout expired */
@@ -669,3 +761,4 @@ int sem_clockwait(sem_t *sem, clockid_t clock_id, const struct timespec *abs_tim
     
     return 0;
 }
+weak_alias (__sem_clockwait, sem_clockwait)
