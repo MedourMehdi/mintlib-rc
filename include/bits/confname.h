@@ -21,14 +21,18 @@
 #endif
 
 /* Values for the NAME argument to `pathconf' and `fpathconf'.  */
-#define _PC_LAST	-1	/* max limit # for pathconf - POSIX (!?) */
-#define _PC_IOPEN_MAX	0	/* internal limit on open files - NOT POSIX */
-#define _PC_LINK_MAX	1	/* max # of links - POSIX */
-#define _PC_PATH_MAX	2	/* max len of a full pathname - POSIX */
-#define _PC_NAME_MAX	3	/* max len of individual name - POSIX */
-#define _PC_PIPE_BUF	4	/* bytes written atomically to fifo - POSIX */
-#define _PC_NO_TRUNC	5	/* filename truncation - POSIX */
-#define _MINT_PC_NAME_CASE 6	/* case-insensitive file-names */
+#define _PC_LAST        -1  /* max limit # for pathconf - POSIX (!?) */
+#define _PC_IOPEN_MAX    0  /* internal limit on open files - NOT POSIX */
+#define _PC_LINK_MAX     1  /* max # of links - POSIX */
+#define _PC_PATH_MAX     2  /* max len of a full pathname - POSIX */
+#define _PC_NAME_MAX     3  /* max len of individual name - POSIX */
+#define _PC_PIPE_BUF     4  /* bytes written atomically to fifo - POSIX */
+#define _PC_NO_TRUNC     5  /* filename truncation - POSIX */
+#define _MINT_PC_NAME_CASE 6 /* case-insensitive file-names - MiNT */
+#define _PC_CHOWN_RESTRICTED 7 /* chown restricted to root - POSIX */
+#define _PC_VDISABLE     8  /* terminal char disabling value - POSIX */
+#define _PC_MAX_CANON    9  /* max bytes in terminal canonical input - POSIX */
+#define _PC_MAX_INPUT   10  /* max bytes in terminal raw input - POSIX */
 
 /* Values for the argument to `sysconf'.  */
 #define _SC_LAST				-1	/* max limit # for sysconf - NOT POSIX */

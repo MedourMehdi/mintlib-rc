@@ -10,9 +10,7 @@ __BEGIN_DECLS
 #include <bits/statvfs.h>
 
 int statvfs (const char *, struct statvfs *) __THROW __nonnull ((1, 2));
-#if 0
 int fstatvfs (int, struct statvfs *) __THROW __nonnull ((2));
-#endif
 
 __END_DECLS
 
