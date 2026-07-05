@@ -77,6 +77,8 @@
 #define THREAD_SYNC_SEM_WAIT            1   /* Wait on semaphore (P operation) */
 #define THREAD_SYNC_SEM_POST            2   /* Signal semaphore (V operation) */
 #define THREAD_SYNC_SEM_INIT            3   /* Initialize semaphore */
+#define THREAD_SYNC_SEM_TRYWAIT         4   /* sem_trywait */
+#define THREAD_SYNC_SEM_TIMEDWAIT       5   /* sem_timedwait */
 
 /* --- Mutex Operations --- */
 #define THREAD_SYNC_MUTEX_INIT          10  /* Initialize mutex */

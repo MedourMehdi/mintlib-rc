@@ -67,18 +67,14 @@ __sleep (unsigned int n)
 	long remain;
 
 	if (__mint) {
+		if (n == 0) return 0;
 		/* Check if we're in a multithreaded environment and not the main thread */
 		if (__mint_is_multithreaded) {
 			if(pthread_self() > 0){
 				/* Use pthread sleep for multithreaded environment */
 				return __msleep(n * 1000) == 0 ? 0 : n;
 			} 
-			// else {
-			// 	return usleep(n * 1000 * 1000) ? 0 : n; /* Use usleep for main thread */
-			// }
-		}
-		if (n == 0)
-			return 0;
+		}		
 		/* Clear any existing alarm, but save its expire time.
 		   Then block all signals and save original mask.
 		   Install our alarm handler, and remask (since Psignal()

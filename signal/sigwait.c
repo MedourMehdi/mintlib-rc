@@ -71,3 +71,43 @@ __sigwaitinfo(__const sigset_t *set, siginfo_t *info)
     return (int)ret;
 }
 weak_alias (__sigwaitinfo, sigwaitinfo)
+
+/* =========================== */
+/*      sigwait               */
+/* =========================== */
+
+__typeof__(sigwait) __sigwait;
+
+/**
+ * sigwait - wait for queued signals (synchronous)
+ * @set: set of signals to wait for
+ * @sig: buffer to receive signal number
+ *
+ * Returns: 0 on success, -1 on error (errno set)
+ */
+int 
+__sigwait(__const sigset_t *set, int *sig)
+{
+    int ret;
+
+    /* Validate parameters */
+    if (!set || !sig) {
+        __set_errno(EINVAL);
+        return -1;
+    }
+
+    /* Call __sigwaitinfo passing NULL for info since sigwait 
+       does not return signal information, only the signal number */
+    ret = __sigwaitinfo(set, NULL);
+
+    if (ret < 0) {
+        /* __sigwaitinfo sets errno */
+        return -1;
+    }
+
+    /* Store the signal number in the user-provided location */
+    *sig = ret;
+
+    return 0;
+}
+weak_alias (__sigwait, sigwait)

@@ -233,8 +233,6 @@ int __sem_wait(sem_t *sem) {
         }
 
     }
-
-    return 0;
 }
 weak_alias (__sem_wait, sem_wait)
 
@@ -255,30 +253,13 @@ int __sem_trywait(sem_t *sem) {
     }
 
     if (__mint_is_multithreaded) {
-        short old_count = sem->count;
-
-        /* Multithreaded mode: use atomic syscall for check-and-decrement */
-        /* Try to atomically decrement count if it's > 0 */
-        
-        /* Use atomic compare-and-swap to decrement if still > 0 */
-        /* This will atomically check if count > 0 and decrement if so */
-        
-        while (old_count > 0) {
-            /* Try to CAS from old_count to old_count-1 */
-            if (sys_p_thread_atomic(THREAD_ATOMIC_CAS, (long)&sem->count, (long)old_count, (long)(old_count - 1)) == 1) {
-                /* Successfully decremented */
-                errno = 0;  /* Ensure errno is clear on success */
-                return 0;
-            }
-            /* CAS failed, re-read current value and try again */
-            old_count = sem->count;
-            /* Yield to other threads to avoid busy-waiting */
-            sys_p_thread_sync(THREAD_SYNC_YIELD, 0, 0);
+        // printf("sem trywait pointer %p\n", sem);
+        if (sys_p_thread_sync(THREAD_SYNC_SEM_TRYWAIT, (long)sem, 0) < 0) {
+            errno = EAGAIN; // ou la gestion exacte du code d'erreur FreeMiNT
+            // printf("errno %d\n", errno);
+            return -1;
         }
-        
-        /* Count is 0, cannot decrement */
-        errno = EAGAIN;
-        return -1;
+        return 0;
     } else {
         /* Single-threaded mode: use original implementation */
         int32_t sem_id;
@@ -309,7 +290,6 @@ int __sem_trywait(sem_t *sem) {
             return -1;
         }
     }
-    return 0;
 }
 weak_alias (__sem_trywait, sem_trywait)
 
@@ -327,6 +307,7 @@ int __sem_post(sem_t *sem) {
     }
 
     if (__mint_is_multithreaded) {
+        // printf("sem post pointer %p\n", sem);
         if (sys_p_thread_sync(THREAD_SYNC_SEM_POST, (long)sem, 0) < 0) {
             return -1;
         }
@@ -527,7 +508,6 @@ static int timeout_expired(const struct timespec *abs_timeout, clockid_t clock_i
     return 0;
 }
 
-
 /* =========================== */
 /*     sem_timedwait           */
 /* =========================== */
@@ -535,8 +515,6 @@ static int timeout_expired(const struct timespec *abs_timeout, clockid_t clock_i
 __typeof__(sem_timedwait) __sem_timedwait;
 
 int __sem_timedwait(sem_t *sem, const struct timespec *abs_timeout) {
-    int32_t timeout_ms;
-    
     /* Reset errno at the start of each call */
     errno = 0;
     
@@ -563,36 +541,37 @@ int __sem_timedwait(sem_t *sem, const struct timespec *abs_timeout) {
     }
     
     if (__mint_is_multithreaded) {
-        /* Multithreaded mode: polling approach with atomic operations */
-        const int POLL_INTERVAL_MS = 2; /* 1ms polling interval */
-        short old_count;
-        
-        while (!timeout_expired(abs_timeout, CLOCK_REALTIME)) {
-            old_count = sem->count;
-            
-            /* Try to atomically decrement if count > 0 */
-            while (old_count > 0) {
-                if (sys_p_thread_atomic(THREAD_ATOMIC_CAS, (long)&sem->count, 
-                                      (long)old_count, (long)(old_count - 1)) == 1) {
-                    /* Successfully acquired semaphore */
-                    errno = 0;
-                    return 0;
-                }
-                /* CAS failed, re-read current value */
-                old_count = sem->count;
+        int32_t timeout_ms = timespec_to_timeout_ms(abs_timeout);
+        // printf("sem timedwait pointer %p\n", sem);
+        {
+            int32_t r = sys_p_thread_sync(THREAD_SYNC_SEM_TIMEDWAIT, (long)sem, timeout_ms);
+            // printf("errno %d\n", errno);
+            if (r < 0) {
+                if (r == -ETIMEDOUT || r == EACCDN)
+                    errno = ETIMEDOUT;
+                else if (r == -ERANGE || r == ERANGE)
+                    errno = EINVAL;   /* semaphore destroyed */
+                else
+                    errno = EINVAL;
+                return -1;
             }
-            
-            /* Semaphore not available, yield and sleep briefly */
-            /* Use internal __msleep to avoid symbol interposition issues */
-            __msleep(POLL_INTERVAL_MS);
         }
-        
-        /* Timeout expired */
-        errno = ETIMEDOUT;
-        return -1;
-        
+        return 0;
     } else {
-        /* Single-threaded mode: use original implementation with timeout */
+        /* Single-threaded mode: Psemaphore(2) is a mutex protecting sem->count,
+         * not the counting semaphore itself.  Loop until the absolute deadline,
+         * acquiring the mutex on each iteration with the remaining timeout.
+         * timeout=0 means non-blocking (return immediately); other positive
+         * values are ms; -1 means infinite — we never pass -1 here since we
+         * always have a finite deadline.
+         *
+         * If Psemaphore(2) times out (EACCDN), the kernel already waited out
+         * the remaining time, so the loop condition will be false on the next
+         * check and we fall through to ETIMEDOUT.
+         *
+         * If the mutex is acquired but count==0, unlock, yield, and retry so
+         * that sem_post from another process gets a chance to increment count
+         * before the deadline. */
         int32_t sem_id;
         int result;
 
@@ -600,42 +579,46 @@ int __sem_timedwait(sem_t *sem, const struct timespec *abs_timeout) {
             errno = EINVAL;
             return -1;
         }
-        
-        timeout_ms = timespec_to_timeout_ms(abs_timeout);
-        if (timeout_ms == -2) {
-            /* Error in timespec_to_timeout_ms, errno already set */
-            return -1;
-        }
-        
+
         sem_id = sem_id_from_name(sem->sem_id);
-        
-        /* Try to acquire semaphore with timeout */
-        if (timeout_ms == 0) {
-            /* Timeout already expired - try once without waiting */
+
+        while (!timeout_expired(abs_timeout, CLOCK_REALTIME)) {
+            /* Non-blocking mutex try (timeout=0).
+             * On single-CPU m68k the mutex is either free or held momentarily
+             * by sem_post.  Passing the remaining deadline here would conflate
+             * the mutex-acquisition wait with the semaphore-count wait; the
+             * outer loop condition is what enforces the absolute deadline.
+             * ERANGE means the semaphore was destroyed — bail immediately.
+             * EACCDN means the mutex is transiently busy — yield and retry. */
             result = Psemaphore(2, sem_id, 0);
-        } else {
-            /* Wait with timeout */
-            result = Psemaphore(2, sem_id, timeout_ms);
-        }
-        
-        if (result < 0) {
-            if (result == EACCDN) {
-                errno = ETIMEDOUT;
-            } else {
-                errno = EINVAL;
+            if (result < 0) {
+                if (result == ERANGE) {
+                    errno = EINVAL;   /* semaphore no longer exists */
+                    return -1;
+                }
+                /* EACCDN: mutex busy (sem_post in progress), yield and retry. */
+                if (sched_yield() != 0) {
+                    usleep(1000);
+                }
+                continue;
             }
-            return -1;
+
+            if (sem->count > 0) {
+                sem->count--;
+                Psemaphore(3, sem_id, 0);   /* unlock */
+                return 0;
+            }
+
+            /* count == 0: release mutex, yield to let sem_post run, retry. */
+            Psemaphore(3, sem_id, 0);       /* unlock — always */
+            if (sched_yield() != 0) {
+                usleep(1000);
+            }
         }
-        
-        sem->count--;
-        
-        /* Release semaphore immediately if more count available */
-        if (sem->count > 0) {
-            Psemaphore(3, sem_id, 0);
-        }
+
+        errno = ETIMEDOUT;
+        return -1;
     }
-    
-    return 0;
 }
 weak_alias (__sem_timedwait, sem_timedwait)
 
@@ -647,8 +630,6 @@ weak_alias (__sem_timedwait, sem_timedwait)
 __typeof__(sem_clockwait) __sem_clockwait;
 
 int __sem_clockwait(sem_t *sem, clockid_t clock_id, const struct timespec *abs_timeout) {
-    int32_t timeout_ms;
-    
     /* Reset errno at the start of each call */
     errno = 0;
     
@@ -687,36 +668,35 @@ int __sem_clockwait(sem_t *sem, clockid_t clock_id, const struct timespec *abs_t
     }
     
     if (__mint_is_multithreaded) {
-        /* Multithreaded mode: polling approach with atomic operations */
-        const int POLL_INTERVAL_MS = 2; /* 1ms polling interval */
-        short old_count;
-        
-        while (!timeout_expired(abs_timeout, clock_id)) {
-            old_count = sem->count;
-            
-            /* Try to atomically decrement if count > 0 */
-            while (old_count > 0) {
-                if (sys_p_thread_atomic(THREAD_ATOMIC_CAS, (long)&sem->count, 
-                                      (long)old_count, (long)(old_count - 1)) == 1) {
-                    /* Successfully acquired semaphore */
-                    errno = 0;
-                    return 0;
-                }
-                /* CAS failed, re-read current value */
-                old_count = sem->count;
+        /* Multithreaded mode: mirror sem_timedwait MT exactly.
+         * The clock distinction is absorbed by timespec_to_timeout_ms_clock;
+         * the kernel receives a relative ms timeout and does not need to know
+         * which clock was used.  The previous CAS polling stub was wrong: it
+         * bypassed sys_p_thread_sync and raced with sem_post/sem_wait MT which
+         * both go through the kernel threading layer. */
+        {
+            int32_t tms = timespec_to_timeout_ms_clock(abs_timeout, clock_id);
+            int32_t r;
+            if (tms == -2) {
+                return -1;
             }
-            
-            /* Semaphore not available, yield and sleep briefly */
-            /* Use internal __msleep to avoid symbol interposition issues */
-            __msleep(POLL_INTERVAL_MS);
+            r = sys_p_thread_sync(THREAD_SYNC_SEM_TIMEDWAIT, (long)sem, tms);
+            if (r < 0) {
+                if (r == -ETIMEDOUT || r == EACCDN)
+                    errno = ETIMEDOUT;
+                else if (r == -ERANGE || r == ERANGE)
+                    errno = EINVAL;   /* semaphore destroyed */
+                else
+                    errno = EINVAL;
+                return -1;
+            }
         }
-        
-        /* Timeout expired */
-        errno = ETIMEDOUT;
-        return -1;
-        
+        return 0;
+
     } else {
-        /* Single-threaded mode: use original implementation with timeout */
+        /* Single-threaded mode: same retry loop as sem_timedwait, but using
+         * clock_id for deadline checks and timespec_to_timeout_ms_clock for
+         * remaining-time conversion. */
         int32_t sem_id;
         int result;
 
@@ -724,41 +704,39 @@ int __sem_clockwait(sem_t *sem, clockid_t clock_id, const struct timespec *abs_t
             errno = EINVAL;
             return -1;
         }
-        
-        timeout_ms = timespec_to_timeout_ms_clock(abs_timeout, clock_id);
-        if (timeout_ms == -2) {
-            /* Error in timespec_to_timeout_ms_clock, errno already set */
-            return -1;
-        }
-        
+
         sem_id = sem_id_from_name(sem->sem_id);
-        
-        /* Try to acquire semaphore with timeout */
-        if (timeout_ms == 0) {
-            /* Timeout already expired - try once without waiting */
+
+        while (!timeout_expired(abs_timeout, clock_id)) {
+            /* Same pattern as sem_timedwait: non-blocking mutex try.
+             * Deadline is enforced by the loop condition, not Psemaphore. */
             result = Psemaphore(2, sem_id, 0);
-        } else {
-            /* Wait with timeout */
-            result = Psemaphore(2, sem_id, timeout_ms);
+            if (result < 0) {
+                if (result == ERANGE) {
+                    errno = EINVAL;   /* semaphore no longer exists */
+                    return -1;
+                }
+                if (sched_yield() != 0) {
+                    usleep(1000);
+                }
+                continue;
+            }
+
+            if (sem->count > 0) {
+                sem->count--;
+                Psemaphore(3, sem_id, 0);   /* unlock */
+                return 0;
+            }
+
+            /* count == 0: release mutex, yield to let sem_post run, retry. */
+            Psemaphore(3, sem_id, 0);       /* unlock — always */
+            if (sched_yield() != 0) {
+                usleep(1000);
+            }
         }
-        
-        if (result < 0) {
-            if (result == EACCDN) {
-                errno = ETIMEDOUT;
-            } else {
-                errno = EINVAL;
-            }                
-            return -1;
-        }
-        
-        sem->count--;
-        
-        /* Release semaphore immediately if more count available */
-        if (sem->count > 0) {
-            Psemaphore(3, sem_id, 0);
-        }
+
+        errno = ETIMEDOUT;
+        return -1;
     }
-    
-    return 0;
 }
 weak_alias (__sem_clockwait, sem_clockwait)
