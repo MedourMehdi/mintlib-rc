@@ -164,7 +164,6 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
                   void *(*start_routine)(void*), void *arg) __THROW;
 void pthread_exit(void *retval) __THROW;
 int pthread_join(pthread_t thread, void **retval) __THROW;
-int pthread_tryjoin_np(pthread_t thread, void **retval) __THROW;
 int pthread_detach(pthread_t thread) __THROW;
 pthread_t pthread_self(void) __THROW;
 int pthread_equal(pthread_t t1, pthread_t t2) __THROW;

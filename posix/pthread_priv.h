@@ -117,7 +117,6 @@
 /* --- Thread Lifecycle Operations --- */
 #define THREAD_SYNC_JOIN               50  /* Join thread and wait for termination */
 #define THREAD_SYNC_DETACH             51  /* Detach thread (make unjoinable) */
-#define THREAD_SYNC_TRYJOIN            52  /* Non-blocking join attempt */
 
 /* --- Thread Scheduling Operations --- */
 #define THREAD_SYNC_SLEEP              60  /* Sleep for specified milliseconds */

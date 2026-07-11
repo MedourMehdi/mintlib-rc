@@ -91,30 +91,6 @@ int __msleep(long ms)
 }
 weak_alias (__msleep, msleep)
 
-
-/* =========================== */
-/*    pthread_tryjoin_np       */
-/* =========================== */
-
-__typeof__(pthread_tryjoin_np) __pthread_tryjoin_np;
-
-/*
- * pthread_tryjoin_np - attempt to join with a thread without blocking
- * Non-portable extension for MiNT pthread implementation
- */
-int __pthread_tryjoin_np(pthread_t thread, void **retval)
-{
-    long result = 1;
-    while (result != 0) {
-        result = sys_p_thread_sync(THREAD_SYNC_TRYJOIN, thread, (long)retval);
-        // pthread_yield();
-        // msleep(10); // Sleep for 10ms before checking again
-    }
-    return 0; // Successfully joined
-}
-weak_alias (__pthread_tryjoin_np, pthread_tryjoin_np)
-
-
 /* =========================== */
 /* pthread_setup_threading_np  */
 /* =========================== */
