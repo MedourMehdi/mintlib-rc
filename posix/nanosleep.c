@@ -9,6 +9,9 @@
 
 #include "lib.h"	/* __mint */
 
+#include <pthread.h>
+#include "pthread_priv.h"
+
 #define TIMESPEC_TO_USEC(ts) ((ts)->tv_sec * 1000000L + (ts)->tv_nsec / 1000)
 #define USEC_PER_TICK (1000000L / ((unsigned long)CLOCKS_PER_SEC))
 #define	USEC_TO_CLOCK_TICKS(us)	((us) / USEC_PER_TICK )
@@ -40,6 +43,14 @@ nanosleep(const struct timespec *req, struct timespec *rem)
 		return 0;
 	}
 
+	/* Use thread-aware sleep in multithreaded environment.
+	 * select()/Fpoll() sleeps the whole process on SELECT_Q,
+	 * blocking every other thread. __msleep() sleeps only the caller.
+	 */
+	if (__mint_is_multithreaded && pthread_self() > 0) {
+		long ms = req->tv_sec * 1000 + req->tv_nsec / 1000000;
+		return __msleep(ms) == 0 ? 0 : -1;
+	}
 	wait.tv_sec = req->tv_sec;
 	wait.tv_usec = (req->tv_nsec + 999) / 1000;
 	if (wait.tv_usec == 1000000) {
@@ -67,7 +78,8 @@ nanosleep(const struct timespec *req, struct timespec *rem)
 	remain.tv_sec += remain.tv_usec / 1000000L;
 	remain.tv_usec %= 1000000L;
 
-	TIMEVAL_TO_TIMESPEC(&remain, rem)
+	if (rem != NULL)
+		TIMEVAL_TO_TIMESPEC(&remain, rem);
 
 	errno = savederrno;
 
