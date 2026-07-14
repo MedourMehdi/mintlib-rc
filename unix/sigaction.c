@@ -90,7 +90,7 @@ __sigaction(int sig, const struct sigaction *act, struct sigaction *oact)
         if (act) {
             if (act->sa_flags & SA_SIGINFO) {
                 void (*ext_handler)(int, siginfo_t *, void *);
-                ext_handler = (void (*)(int, siginfo_t *, void *)) (void *) act->sa_handler;
+                ext_handler = act->sa_sigaction;
                 if (__sigaction_set_extended(sig, ext_handler) != 0) {
                     /* if extended install failed, undo?  We return error */
                     return -1;

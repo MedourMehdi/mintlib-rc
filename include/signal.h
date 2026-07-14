@@ -231,10 +231,12 @@ extern int sigwait __P ((__const sigset_t *__set, int *__sig));
  *   and is required when compiling with -Wall or -Werror.
  * ---------------------------------------------------------------------------
  */
-#ifndef sa_sigaction
-#  define sa_sigaction sa_handler
-#  define SIGACTION_CAST(h) ((__sighandler_t)(void (*)(int, siginfo_t *, void *))(h))
-#endif
+/* struct sigaction now declares a real sa_sigaction union member (see
+   <bits/sigaction.h>) -- assign it directly, no cast needed:
+       act.sa_sigaction = my_handler;
+   SIGACTION_CAST kept only for old call sites still doing it the
+   manual way. */
+#define SIGACTION_CAST(h) ((__sighandler_t)(void (*)(int, siginfo_t *, void *))(h))
 
 /* Select any of pending signals from SET and place information in INFO.  */
 extern int sigwaitinfo(__const sigset_t *set, siginfo_t *info);

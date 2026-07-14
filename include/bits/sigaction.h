@@ -37,24 +37,19 @@
 # define SA_ONESHOT   SA_RESETHAND
 #endif
 
-#if 0
- /* NYI: */
-#define SA_NOCLDWAIT   0x0002		/* do not generate zombies on unwaited child */
-#define SA_SIGINFO     0x0040		/* Invoke signal-catching function with three arguments instead of one. */
-#define SA_ONSTACK     0x2000		/* take signal on signal stack */
-# define SA_STACK     SA_ONSTACK
-#define SA_RESTART     0x4000		/* restart system on signal return */
-#endif
+/* SA_SIGINFO already defined in <bits/siginfo.h>, included earlier via
+   <signal.h>. Left here only as a comment for reference:
+     SA_SIGINFO   0x0040
+   SA_NOCLDWAIT/SA_ONSTACK/SA_RESTART remain NYI kernel-side; not defined
+   here to avoid callers believing they're functional. */
 
 struct sigaction {
-	__sighandler_t 	sa_handler;	/* Pointer to signal handler.  */
+	union {
+		__sighandler_t sa_handler;	/* Pointer to signal handler.  */
+		void (*sa_sigaction) (int, siginfo_t *, void *);
+						/* Pointer to SA_SIGINFO handler.  */
+	};
 	__sigset_t	sa_mask;	/* Additional signals masked during
 					   delivery.  */
 	int		sa_flags;	/* Signal specific flags.  */
 };
-// struct sigaction {
-//     __sighandler_t    sa_handler;      /* Pointer to signal handler */
-//     __sigset_t        sa_mask;         /* Additional signals masked during delivery */
-//     unsigned short    sa_flags;        /* Signal specific flags (NOTE: short, not int) */
-//     // unsigned short    _sa_pad;         /* EXPLICIT PADDING - ensure alignment */
-// };
