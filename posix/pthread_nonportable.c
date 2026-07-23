@@ -81,13 +81,16 @@ __typeof__(msleep) __msleep;
 
 int __msleep(long ms) 
 {
+    long result;
     if ( __mint_is_multithreaded && ((long)sys_p_thread_ctrl(THREAD_CTRL_GETID, 0, 0)) > 0) {
-        long result;
         ms = ms > 1 ? ms : 1;  // Ensure at least 1 ms
         result = sys_p_thread_sync(THREAD_SYNC_SLEEP, ms, 0);
         return (result < 0) ? -result : 0;
     }
-    return usleep(ms * 1000);
+
+    result = usleep(ms * 1000);
+    pthread_yield();
+    return (result < 0) ? -result : 0;
 }
 weak_alias (__msleep, msleep)
 

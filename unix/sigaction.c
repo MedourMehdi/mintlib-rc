@@ -95,16 +95,18 @@ __sigaction(int sig, const struct sigaction *act, struct sigaction *oact)
                     /* if extended install failed, undo?  We return error */
                     return -1;
                 }
-            } 
-			// else {
-            //     /* Ensure any previous extended handler is cleared */
-            //     __sigaction_set_extended(sig, NULL);
-            // }
-        } 
-		// else {
-        //     /* act == NULL -> no install: clear any extended handler */
-        //     __sigaction_set_extended(sig, NULL);
-        // }
+        } else {
+            /* Installing a plain handler must clear any previously
+               installed extended (SA_SIGINFO) handler, or the kernel
+               keeps invoking the old 3-arg handler via sendsig(). */
+            if (__sigaction_set_extended(sig, NULL) != 0)
+                return -1;
+        }
+    } else {
+        /* act == NULL -> restoring to default: clear any extended handler too. */
+        if (__sigaction_set_extended(sig, NULL) != 0)
+            return -1;
+		}
 		if (oact) {
 			oact->sa_mask = koact.sa_mask;
 			oact->sa_flags = (int) koact.sa_flags;

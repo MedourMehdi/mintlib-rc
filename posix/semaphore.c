@@ -134,10 +134,7 @@ int __sem_init(sem_t *sem, int pshared, unsigned int value) {
 
     if (__mint_is_multithreaded) {
         /* Multithreaded mode: use pthread semaphore implementation */
-        sem->count = value;
-        sem->wait_queue = NULL;
-        sem->io_count = 0;
-        strcpy(sem->sem_id, "");  /* Not used in multithreaded mode */
+        return (sys_p_thread_sync(THREAD_SYNC_SEM_INIT, (long)sem, (long)value) < 0) ? -1 : 0;
     } else {
         /* Single-threaded mode: use original implementation */
         char *temp_id = gen_sem_id();
@@ -307,7 +304,6 @@ int __sem_post(sem_t *sem) {
     }
 
     if (__mint_is_multithreaded) {
-        // printf("sem post pointer %p\n", sem);
         if (sys_p_thread_sync(THREAD_SYNC_SEM_POST, (long)sem, 0) < 0) {
             return -1;
         }

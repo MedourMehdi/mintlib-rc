@@ -73,7 +73,7 @@ __sleep (unsigned int n)
 			if(pthread_self() > 0){
 				/* Use pthread sleep for multithreaded environment */
 				return __msleep(n * 1000) == 0 ? 0 : n;
-			} 
+			}
 		}		
 		/* Clear any existing alarm, but save its expire time.
 		   Then block all signals and save original mask.
